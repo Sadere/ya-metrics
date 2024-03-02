@@ -69,6 +69,8 @@ func TestServer_updateGaugeHandle(t *testing.T) {
 
 			result := w.Result()
 
+			defer result.Body.Close()
+
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 			assert.Contains(t, result.Header.Get("Content-Type"), tt.want.contentType)
 		})
@@ -124,6 +126,8 @@ func TestServer_updateCounterHandle(t *testing.T) {
 			server.updateCounterHandle(w, request)
 
 			result := w.Result()
+	
+			defer result.Body.Close()
 
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 			assert.Contains(t, result.Header.Get("Content-Type"), tt.want.contentType)

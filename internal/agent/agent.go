@@ -107,6 +107,8 @@ func (a *Agent) sendMetric(metricType string, metricName string, metricValue str
 	if err != nil {
 		return fmt.Errorf("[%s] couldn't make http request", metricName)
 	}
+	
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("[%s] failed to save metric, code = %d", metricName, res.StatusCode)
