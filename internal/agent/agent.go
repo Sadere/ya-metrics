@@ -98,16 +98,16 @@ func (a *Agent) sendMetric(metricType string, metricName string, metricValue str
 
 	req, err := http.NewRequest(http.MethodPost, baseURL+path, nil)
 	if err != nil {
-		return fmt.Errorf("[%s] couldn't create http request", metricName)
+		return fmt.Errorf("[%s] couldn't create http request: %s", metricName, err.Error())
 	}
 
 	req.Header.Set("Content-Type", "text/plain")
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("[%s] couldn't make http request", metricName)
+		return fmt.Errorf("[%s] couldn't make http request: %s", metricName, err.Error())
 	}
-	
+
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
