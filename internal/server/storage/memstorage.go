@@ -6,22 +6,11 @@ import (
 	"strconv"
 )
 
-type Storage interface {
-	Get(string) (string, error)
-	Set(string, string) error
-
-	GetInt64(string) (int64, error)
-	SetInt64(string, int64) error
-
-	GetFloat64(string) (float64, error)
-	SetFlaot64(string, float64) error
-}
-
 type MemStorage struct {
 	data map[string]string
 }
 
-func New() *MemStorage {
+func NewMemStorage() *MemStorage {
 	return &MemStorage{data: make(map[string]string)}
 }
 
@@ -50,7 +39,7 @@ func (m MemStorage) Set(key string, value string) error {
 }
 
 func (m MemStorage) GetInt64(key string) (int64, error) {
-	value, err := m.Get(key);
+	value, err := m.Get(key)
 	if err != nil {
 		return 0, err
 	}
@@ -70,7 +59,7 @@ func (m MemStorage) SetInt64(key string, value int64) error {
 }
 
 func (m MemStorage) GetFloat64(key string) (float64, error) {
-	value, err := m.Get(key);
+	value, err := m.Get(key)
 	if err != nil {
 		return 0, err
 	}
