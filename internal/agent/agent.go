@@ -3,7 +3,7 @@ package agent
 import (
 	"fmt"
 	"log"
-	"math/rand/v2"
+	"math/rand"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -75,7 +75,7 @@ func Run() {
 			}
 
 			// Сохраняем случайное значение
-			randomValue := fmt.Sprintf("%d", rand.IntN(10000))
+			randomValue := fmt.Sprintf("%d", rand.Intn(10000))
 
 			if err := agent.sendMetric("gauge", "RandomValue", randomValue); err != nil {
 				log.Println(err.Error())
