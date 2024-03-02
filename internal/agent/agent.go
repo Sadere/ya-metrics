@@ -41,20 +41,22 @@ func Run() {
 	// Считываем метрики
 	go func() {
 		for {
+			time.Sleep(time.Duration(agent.pollInterval) * time.Second)
+
 			agent.mu.Lock()
 
 			agent.mGauge = agent.pollMetrics()
 			agent.pollCount += 1
 
 			agent.mu.Unlock()
-
-			time.Sleep(time.Duration(agent.pollInterval) * time.Second)
 		}
 	}()
 
 	// Сохраняем на сервере метрики из рантайма
 	go func() {
 		for {
+			time.Sleep(time.Duration(agent.reportInterval) * time.Second)
+
 			agent.mu.RLock()
 
 			for metricName, metricRaw := range agent.mGauge {
@@ -83,8 +85,6 @@ func Run() {
 			}
 
 			agent.mu.RUnlock()
-
-			time.Sleep(time.Duration(agent.reportInterval) * time.Second)
 		}
 	}()
 
