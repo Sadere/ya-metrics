@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Метрики</title>
+</head>
+
+<body>
+    <table>
+        <thead>
+            <tr>
+                <td>Имя метрики</td>
+                <td>Значение</td>
+            </tr>
+        </thead>
+    {{ range .Metrics }}
+        <tr>
+            <td>{{ .Name }}</td>
+            <td>{{ .Value }}</td>
+        </tr>
+    {{end}}
+    </table>
+</body>
+</html>

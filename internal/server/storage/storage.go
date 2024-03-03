@@ -10,4 +10,6 @@ type Storage interface {
 
 	GetFloat64(string) (float64, error)
 	SetFloat64(string, float64) error
+
+	GetData() map[string]string
 }
