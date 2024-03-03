@@ -1,40 +1,41 @@
 package server
 
 import (
-	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/Sadere/ya-metrics/internal/server/storage"
+	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
 	storage storage.Storage
 }
 
-// Middleware отсекающий все запросы кроме POST
-func (s *Server) postMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		if req.Method != http.MethodPost {
-			http.Error(res, "Only POST method allowed", http.StatusBadRequest)
-			return
-		}
+func (s *Server) setupRouter() *gin.Engine {
+	r := gin.Default()
 
-		next.ServeHTTP(res, req)
-	})
+	// Обработка обновления метрик
+	r.POST(`/update/:type/:metric/:value`, s.updateHandle)
+
+	// Вывод метрики
+	r.GET(`/value/:type/:metric`, s.getMetricHandle)
+
+	// Вывод всех метрик в HTML
+	r.GET(`/`, s.getAllMetricsHandle)
+
+	return r
 }
 
 func (s *Server) StartServer() error {
-	mux := http.NewServeMux()
+	r := s.setupRouter()
 
-	// Обработка обновления метрик
-	mux.Handle(`/update/gauge/`, s.postMiddleware(http.HandlerFunc(s.updateGaugeHandle)))
-	mux.Handle(`/update/counter/`, s.postMiddleware(http.HandlerFunc(s.updateCounterHandle)))
+	// Загружаем HTML шаблоны
+	execFile, _ := os.Executable()
+	execPath := filepath.Dir(execFile)
+	r.LoadHTMLGlob(execPath + "/../../templates/*")
 
-	// Обработка остальных запросов
-	mux.HandleFunc(`/`, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-	})
-
-	return http.ListenAndServe(`:8080`, mux)
+	return r.Run()
 }
 
 func Run() {

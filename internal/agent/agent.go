@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"github.com/go-resty/resty/v2"
 	"log"
 	"math/rand"
 	"net/http"
@@ -61,6 +62,7 @@ func Run() {
 
 			for metricName, metricRaw := range agent.mGauge {
 				metricValue := fmt.Sprintf("%f", metricRaw)
+
 				err := agent.sendMetric("gauge", metricName, metricValue)
 				if err != nil {
 					log.Println(err.Error())
@@ -93,25 +95,21 @@ func Run() {
 
 func (a *Agent) sendMetric(metricType string, metricName string, metricValue string) error {
 	baseURL := "http://" + a.Host + ":" + strconv.Itoa(a.Port)
+	client := resty.New()
 
 	path := fmt.Sprintf("/update/%s/%s/%s", metricType, metricName, metricValue)
 
-	req, err := http.NewRequest(http.MethodPost, baseURL+path, nil)
-	if err != nil {
-		return fmt.Errorf("[%s] couldn't create http request: %s", metricName, err.Error())
-	}
+	result, err := client.R().
+		SetHeader("Content-Type", "text/plain").
+		Post(baseURL + path)
 
-	req.Header.Set("Content-Type", "text/plain")
-
-	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("[%s] couldn't make http request: %s", metricName, err.Error())
+
 	}
 
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("[%s] failed to save metric, code = %d", metricName, res.StatusCode)
+	if result.StatusCode() != http.StatusOK {
+		return fmt.Errorf("[%s] failed to save metric, code = %d", metricName, result.StatusCode())
 	}
 
 	return nil

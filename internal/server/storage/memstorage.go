@@ -77,3 +77,7 @@ func (m MemStorage) SetFloat64(key string, value float64) error {
 
 	return m.Set(key, setValue)
 }
+
+func (m MemStorage) GetData() map[string]string {
+	return m.data
+}

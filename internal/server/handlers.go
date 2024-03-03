@@ -3,75 +3,118 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
-	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
-func urlParams(url *url.URL) []string {
-	urlParts := strings.Split(url.Path, "/")
+func (s *Server) updateHandle(c *gin.Context) {
+	metricType := c.Param("type")
 
-	if len(urlParts) > 3 {
-		return urlParts[3:]
+	switch metricType {
+		case "gauge":
+			s.updateGaugeHandle(c)
+			return
+		case "counter":
+			s.updateCounterHandle(c)
+			return
+		default:
+			c.String(http.StatusBadRequest, "Unknown metric type")
 	}
-
-	return []string{}
 }
 
-func (s *Server) updateGaugeHandle(res http.ResponseWriter, req *http.Request) {
-	params := urlParams(req.URL)
+func (s *Server) updateGaugeHandle(c *gin.Context) {
+	name := c.Param("metric")
+	value := c.Param("value")
 
-	if len(params) < 2 {
-		http.Error(res, "Insufficient parameters", http.StatusNotFound)
+	if name == "" || value == "" {
+		c.String(http.StatusNotFound, "Insufficient parameters")
 		return
 	}
 
-	name := params[0]
-	value := params[1]
-
 	valueFloat, err := strconv.ParseFloat(value, 64)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	err = s.storage.SetFloat64(name, valueFloat)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	c.Header("Content-Type", "text/plain; charset=utf-8")
 }
 
-func (s *Server) updateCounterHandle(res http.ResponseWriter, req *http.Request) {
-	params := urlParams(req.URL)
+func (s *Server) updateCounterHandle(c *gin.Context) {
+	name := c.Param("metric")
+	value := c.Param("value")
 
-	if len(params) < 2 {
-		http.Error(res, "Insufficient parameters", http.StatusNotFound)
+	if name == "" || value == "" {
+		c.String(http.StatusNotFound, "Insufficient parameters")
 		return
 	}
-
-	name := params[0]
 
 	oldValue, err := s.storage.GetInt64(name)
 	if err != nil {
 		oldValue = 0
 	}
 
-	addValue, err := strconv.ParseInt(params[1], 10, 64)
+	addValue, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	err = s.storage.SetInt64(name, addValue+oldValue)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	c.Header("Content-Type", "text/plain; charset=utf-8")
 
 	fmt.Println(s.storage)
+}
+
+func (s *Server) getMetricHandle(c *gin.Context) {
+	metricType := c.Param("type")
+	metricName := c.Param("metric")
+
+	if metricType != "counter" && metricType != "gauge" {
+		c.String(http.StatusNotFound, "unknown metric type")
+		return
+	}
+
+	metricValue, err := s.storage.Get(metricName)
+	if err != nil {
+		c.String(http.StatusNotFound, err.Error())
+		return
+	}
+
+	c.String(http.StatusOK, metricValue)
+}
+
+func (s *Server) getAllMetricsHandle(c *gin.Context) {
+	type metric struct {
+		Name  string
+		Value string
+	}
+
+	data := s.storage.GetData()
+	metrics := make([]metric, len(data))
+
+	for k, v := range s.storage.GetData() {
+		metrics = append(metrics, metric{
+			Name:  k,
+			Value: v,
+		})
+	}
+
+	fmt.Println(metrics)
+
+	c.HTML(http.StatusOK, "index.tmpl", gin.H{
+		"Metrics": metrics,
+	})
 }
