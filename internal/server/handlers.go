@@ -8,6 +8,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func (s *Server) updateHandle(c *gin.Context) {
+	metricType := c.Param("type")
+
+	switch metricType {
+		case "gauge":
+			s.updateGaugeHandle(c)
+			return
+		case "counter":
+			s.updateCounterHandle(c)
+			return
+		default:
+			c.String(http.StatusBadRequest, "Unknown metric type")
+	}
+}
+
 func (s *Server) updateGaugeHandle(c *gin.Context) {
 	name := c.Param("metric")
 	value := c.Param("value")

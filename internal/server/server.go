@@ -13,15 +13,10 @@ type Server struct {
 }
 
 func (s *Server) setupRouter() *gin.Engine {
-	execFile, _ := os.Executable()
-	execPath := filepath.Dir(execFile)
-
 	r := gin.Default()
-	r.LoadHTMLGlob(execPath + "/../../internal/server/templates/*")
 
 	// Обработка обновления метрик
-	r.POST(`/update/gauge/:metric/:value`, s.updateGaugeHandle)
-	r.POST(`/update/counter/:metric/:value`, s.updateCounterHandle)
+	r.POST(`/update/:type/:metric/:value`, s.updateHandle)
 
 	// Вывод метрики
 	r.GET(`/value/:type/:metric`, s.getMetricHandle)
@@ -34,6 +29,11 @@ func (s *Server) setupRouter() *gin.Engine {
 
 func (s *Server) StartServer() error {
 	r := s.setupRouter()
+
+	// Загружаем HTML шаблоны
+	execFile, _ := os.Executable()
+	execPath := filepath.Dir(execFile)
+	r.LoadHTMLGlob(execPath + "/../../templates/*")
 
 	return r.Run()
 }

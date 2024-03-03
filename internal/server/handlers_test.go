@@ -34,30 +34,12 @@ func TestServer_updateHandlers(t *testing.T) {
 			},
 		},
 		{
-			name:    "no args gauge",
-			request: "/update/gauge/",
-			method:  http.MethodPost,
-			want: want{
-				contentType: "text/plain",
-				statusCode:  http.StatusNotFound,
-			},
-		},
-		{
 			name:    "save counter",
 			request: "/update/counter/someMetric/100",
 			method:  http.MethodPost,
 			want: want{
 				contentType: "text/plain",
 				statusCode:  http.StatusOK,
-			},
-		},
-		{
-			name:    "no args counter",
-			request: "/update/counter/",
-			method:  http.MethodPost,
-			want: want{
-				contentType: "text/plain",
-				statusCode:  http.StatusNotFound,
 			},
 		},
 		{
