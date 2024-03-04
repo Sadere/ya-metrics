@@ -1,8 +1,12 @@
 package server
 
 import (
+	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/gin-gonic/gin"
@@ -10,6 +14,31 @@ import (
 
 type Server struct {
 	storage storage.Storage
+}
+
+type NetAddress struct {
+	Host string
+	Port int
+}
+
+func (addr *NetAddress) String() string {
+	return fmt.Sprintf("%s:%d", addr.Host, addr.Port)
+}
+
+func (addr *NetAddress) Set(flagValue string) error {
+	addrParts := strings.Split(flagValue, ":")
+
+	if len(addrParts) == 2 {
+		addr.Host = addrParts[0]
+		optPort, err := strconv.Atoi(addrParts[1])
+		if err != nil {
+			optPort = 80
+		}
+
+		addr.Port = optPort
+	}
+
+	return nil
 }
 
 func (s *Server) setupRouter() *gin.Engine {
@@ -30,12 +59,22 @@ func (s *Server) setupRouter() *gin.Engine {
 func (s *Server) StartServer() error {
 	r := s.setupRouter()
 
+	// Парсим флаги командной строки
+	addr := new(NetAddress)
+	addr.Host = "localhost"
+	addr.Port = 8080
+
+	flag.Var(addr, "a", "Адрес сервера")
+	flag.Parse()
+
+	fmt.Println(addr)
+
 	// Загружаем HTML шаблоны
 	execFile, _ := os.Executable()
 	execPath := filepath.Dir(execFile)
 	r.LoadHTMLGlob(execPath + "/../../templates/*")
 
-	return r.Run()
+	return r.Run(addr.String())
 }
 
 func Run() {

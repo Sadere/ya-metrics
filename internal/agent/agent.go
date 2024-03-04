@@ -1,8 +1,8 @@
 package agent
 
 import (
+	"flag"
 	"fmt"
-	"github.com/go-resty/resty/v2"
 	"log"
 	"math/rand"
 	"net/http"
@@ -10,6 +10,10 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/go-resty/resty/v2"
+
+	"github.com/Sadere/ya-metrics/internal/server"
 )
 
 type Agent struct {
@@ -25,16 +29,26 @@ type Agent struct {
 }
 
 func Run() {
+	addr := new(server.NetAddress)
+	addr.Host = "localhost"
+	addr.Port = 8080
+
+	// Парсим флаги командной строки
+	flag.Var(addr, "a", "Адрес сервера")
+	optReportInterval := flag.Int("r", 10, "Частота опроса сервера в секундах")
+	optPollingInterval := flag.Int("p", 2, "Частота сбора метрик")
+	flag.Parse()
+
 	agent := Agent{
-		Host: "localhost",
-		Port: 8080,
+		Host: addr.Host,
+		Port: addr.Port,
 
 		mu:     sync.RWMutex{},
 		mGauge: make(map[string]float64),
 
 		pollCount:      0,
-		pollInterval:   2,
-		reportInterval: 10,
+		pollInterval:   *optPollingInterval,
+		reportInterval: *optReportInterval,
 	}
 
 	done := make(chan bool, 1)
