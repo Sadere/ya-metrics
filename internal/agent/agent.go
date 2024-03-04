@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
 	"sync"
@@ -33,11 +34,42 @@ func Run() {
 	addr.Host = "localhost"
 	addr.Port = 8080
 
-	// Парсим флаги командной строки
-	flag.Var(addr, "a", "Адрес сервера")
-	optReportInterval := flag.Int("r", 10, "Частота опроса сервера в секундах")
-	optPollingInterval := flag.Int("p", 2, "Частота сбора метрик")
+	envAddr, hasEnvAddr := os.LookupEnv("ADDRESS")
+
+	if hasEnvAddr {
+		addr.Set(envAddr)
+	} else {
+		flag.Var(addr, "a", "Адрес сервера")
+	}
+
+	// Конфигурируем
+	flagReportInterval := flag.Int("r", 10, "Частота опроса сервера в секундах")
+	flagPollInterval := flag.Int("p", 2, "Частота сбора метрик")
 	flag.Parse()
+
+	var optPollInterval, optReportInterval int
+
+	// Частота опроса сервера
+	envReportInterval, hasEnvReportInterval := os.LookupEnv("REPORT_INTERVAL")
+	if hasEnvReportInterval {
+		envInt, err := strconv.Atoi(envReportInterval)
+		if err != nil {
+			optReportInterval = envInt
+		}
+	} else {
+		optReportInterval = *flagReportInterval
+	}
+
+	// Частота сбора метрик
+	envPollInterval, hasEnvPollInterval := os.LookupEnv("POLL_INTERVAL")
+	if hasEnvPollInterval {
+		envInt, err := strconv.Atoi(envPollInterval)
+		if err != nil {
+			optPollInterval = envInt
+		}
+	} else {
+		optPollInterval = *flagPollInterval
+	}
 
 	agent := Agent{
 		Host: addr.Host,
@@ -47,8 +79,8 @@ func Run() {
 		mGauge: make(map[string]float64),
 
 		pollCount:      0,
-		pollInterval:   *optPollingInterval,
-		reportInterval: *optReportInterval,
+		pollInterval:   optPollInterval,
+		reportInterval: optReportInterval,
 	}
 
 	done := make(chan bool, 1)

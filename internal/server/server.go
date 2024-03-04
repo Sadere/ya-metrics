@@ -59,12 +59,19 @@ func (s *Server) setupRouter() *gin.Engine {
 func (s *Server) StartServer() error {
 	r := s.setupRouter()
 
-	// Парсим флаги командной строки
+	// Конфигурируем
 	addr := new(NetAddress)
 	addr.Host = "localhost"
 	addr.Port = 8080
 
-	flag.Var(addr, "a", "Адрес сервера")
+	envAddr, hasEnvAddr := os.LookupEnv("ADDRESS")
+
+	if hasEnvAddr {
+		addr.Set(envAddr)
+	} else {
+		flag.Var(addr, "a", "Адрес сервера")
+	}
+	
 	flag.Parse()
 
 	fmt.Println(addr)
