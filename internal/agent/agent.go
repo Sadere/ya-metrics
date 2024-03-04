@@ -9,7 +9,6 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -21,7 +20,6 @@ type Agent struct {
 	Host string
 	Port int
 
-	mu     sync.RWMutex
 	mGauge map[string]float64
 
 	pollCount,
@@ -53,7 +51,7 @@ func Run() {
 	envReportInterval, hasEnvReportInterval := os.LookupEnv("REPORT_INTERVAL")
 	if hasEnvReportInterval {
 		envInt, err := strconv.Atoi(envReportInterval)
-		if err != nil {
+		if err == nil {
 			optReportInterval = envInt
 		}
 	} else {
@@ -64,7 +62,7 @@ func Run() {
 	envPollInterval, hasEnvPollInterval := os.LookupEnv("POLL_INTERVAL")
 	if hasEnvPollInterval {
 		envInt, err := strconv.Atoi(envPollInterval)
-		if err != nil {
+		if err == nil {
 			optPollInterval = envInt
 		}
 	} else {
@@ -75,7 +73,6 @@ func Run() {
 		Host: addr.Host,
 		Port: addr.Port,
 
-		mu:     sync.RWMutex{},
 		mGauge: make(map[string]float64),
 
 		pollCount:      0,
@@ -83,62 +80,46 @@ func Run() {
 		reportInterval: optReportInterval,
 	}
 
-	done := make(chan bool, 1)
+	// Основной цикл работы
+	for {
+		time.Sleep(time.Duration(agent.pollInterval) * time.Second)
 
-	// Считываем метрики
-	go func() {
-		for {
-			time.Sleep(time.Duration(agent.pollInterval) * time.Second)
+		// Считываем метрики
+		agent.mGauge = agent.pollMetrics()
+		agent.pollCount += 1
 
-			agent.mu.Lock()
+		time.Sleep(time.Duration(agent.reportInterval) * time.Second)
 
-			agent.mGauge = agent.pollMetrics()
-			agent.pollCount += 1
+		// Сохраняем на сервере метрики из рантайма
+		for metricName, metricRaw := range agent.mGauge {
+			metricValue := fmt.Sprintf("%f", metricRaw)
 
-			agent.mu.Unlock()
-		}
-	}()
-
-	// Сохраняем на сервере метрики из рантайма
-	go func() {
-		for {
-			time.Sleep(time.Duration(agent.reportInterval) * time.Second)
-
-			agent.mu.RLock()
-
-			for metricName, metricRaw := range agent.mGauge {
-				metricValue := fmt.Sprintf("%f", metricRaw)
-
-				err := agent.sendMetric("gauge", metricName, metricValue)
-				if err != nil {
-					log.Println(err.Error())
-					done <- true
-				}
-			}
-
-			// Сохраняем кол-во считываний
-			sendPollCount := strconv.Itoa(agent.pollCount)
-
-			if err := agent.sendMetric("counter", "PollCount", sendPollCount); err != nil {
+			err := agent.sendMetric("gauge", metricName, metricValue)
+			if err != nil {
 				log.Println(err.Error())
-				done <- true
+				return
 			}
-
-			// Сохраняем случайное значение
-			randomValue := fmt.Sprintf("%d", rand.Intn(10000))
-
-			if err := agent.sendMetric("gauge", "RandomValue", randomValue); err != nil {
-				log.Println(err.Error())
-				done <- true
-			}
-
-			agent.mu.RUnlock()
 		}
-	}()
 
-	<-done
+		// Сохраняем кол-во считываний
+		sendPollCount := strconv.Itoa(agent.pollCount)
+
+		if err := agent.sendMetric("counter", "PollCount", sendPollCount); err != nil {
+			log.Println(err.Error())
+			return
+		}
+
+		// Сохраняем случайное значение
+		randomValue := fmt.Sprintf("%d", rand.Intn(10000))
+
+		if err := agent.sendMetric("gauge", "RandomValue", randomValue); err != nil {
+			log.Println(err.Error())
+			return
+		}
+	}
 }
 
+// Функция отправки данных метрик на сервер
 func (a *Agent) sendMetric(metricType string, metricName string, metricValue string) error {
 	baseURL := "http://" + a.Host + ":" + strconv.Itoa(a.Port)
 	client := resty.New()
@@ -161,6 +142,7 @@ func (a *Agent) sendMetric(metricType string, metricName string, metricValue str
 	return nil
 }
 
+// Считывание необходимых метрик
 func (a *Agent) pollMetrics() map[string]float64 {
 	var rtm runtime.MemStats
 
