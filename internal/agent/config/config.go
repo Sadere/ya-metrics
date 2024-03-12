@@ -20,14 +20,21 @@ func NewConfig() Config {
 	var newConfig Config
 
 	// Конфигурируем адрес сервера
+	defaultHost := "localhost"
+	defaultPort := 8080
+
 	addr := &server.NetAddress{}
-	addr.Host = "localhost"
-	addr.Port = 8080
+	addr.Host = defaultHost
+	addr.Port = defaultPort
 
 	envAddr, hasEnvAddr := os.LookupEnv("ADDRESS")
 
 	if hasEnvAddr {
-		addr.Set(envAddr)
+		err := addr.Set(envAddr)
+		if err != nil {
+			addr.Host = defaultHost
+			addr.Port = defaultPort
+		}
 	} else {
 		flag.Var(addr, "a", "Адрес сервера")
 	}
