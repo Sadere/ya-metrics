@@ -2,14 +2,8 @@ package storage
 
 // Интерфейс для хранения данных о метриках
 type Storage interface {
-	Get(string) (string, error)
-	Set(string, string) error
+	Get(string) (interface{}, error)
+	Set(string, interface{}) error
 
-	GetInt64(string) (int64, error)
-	SetInt64(string, int64) error
-
-	GetFloat64(string) (float64, error)
-	SetFloat64(string, float64) error
-
-	GetData() map[string]string
+	GetData() map[string]interface{}
 }

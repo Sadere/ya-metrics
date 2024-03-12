@@ -45,7 +45,7 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 		return
 	}
 
-	err = s.storage.SetFloat64(name, valueFloat)
+	err = s.storage.Set(name, valueFloat)
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
 		return
@@ -63,9 +63,14 @@ func (s *Server) updateCounterHandle(c *gin.Context) {
 		return
 	}
 
-	oldValue, err := s.storage.GetInt64(name)
+	oldValue, err := s.storage.Get(name)
 	if err != nil {
 		oldValue = 0
+	}
+
+	oldValueInt, ok := oldValue.(int64)
+	if !ok {
+		oldValueInt = 0
 	}
 
 	addValue, err := strconv.ParseInt(value, 10, 64)
@@ -74,7 +79,7 @@ func (s *Server) updateCounterHandle(c *gin.Context) {
 		return
 	}
 
-	err = s.storage.SetInt64(name, addValue+oldValue)
+	err = s.storage.Set(name, oldValueInt+addValue)
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
 		return
@@ -100,7 +105,7 @@ func (s *Server) getMetricHandle(c *gin.Context) {
 		return
 	}
 
-	c.String(http.StatusOK, metricValue)
+	c.String(http.StatusOK, fmt.Sprintf("%v", metricValue))
 }
 
 func (s *Server) getAllMetricsHandle(c *gin.Context) {
@@ -115,7 +120,7 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 	for k, v := range s.storage.GetData() {
 		metrics = append(metrics, metric{
 			Name:  k,
-			Value: v,
+			Value: fmt.Sprintf("%v", v),
 		})
 	}
 
