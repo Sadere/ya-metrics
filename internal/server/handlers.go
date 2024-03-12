@@ -8,18 +8,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type MetricType string
+
+const (
+	CounterMetric MetricType = "counter"
+	GaugeMetric   MetricType = "gauge"
+)
+
 func (s *Server) updateHandle(c *gin.Context) {
 	metricType := c.Param("type")
 
 	switch metricType {
-		case "gauge":
-			s.updateGaugeHandle(c)
-			return
-		case "counter":
-			s.updateCounterHandle(c)
-			return
-		default:
-			c.String(http.StatusBadRequest, "Unknown metric type")
+	case string(GaugeMetric):
+		s.updateGaugeHandle(c)
+		return
+	case string(CounterMetric):
+		s.updateCounterHandle(c)
+		return
+	default:
+		c.String(http.StatusBadRequest, "Unknown metric type")
 	}
 }
 
