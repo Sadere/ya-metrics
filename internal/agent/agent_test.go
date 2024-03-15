@@ -9,16 +9,16 @@ import (
 func TestAgent_pollMetrics(t *testing.T) {
 	tests := []struct {
 		name string
-		a    *Agent
+		a    *MetricAgent
 	}{
 		{
 			name: "polling test",
-			a:    &Agent{},
+			a:    &MetricAgent{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.a.pollMetrics()
+			result := tt.a.Poll()
 
 			assert.NotEmpty(t, result)
 		})

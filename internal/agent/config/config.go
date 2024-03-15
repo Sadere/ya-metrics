@@ -1,78 +1,64 @@
 package config
 
 import (
-	"os"
 	"flag"
+	"log"
+	"os"
 	"strconv"
 
-	"github.com/Sadere/ya-metrics/internal/server"
+	"github.com/Sadere/ya-metrics/internal/common"
+)
+
+const (
+	DefaultPollInterval = 2
+	DefaultReportInterval = 10
 )
 
 type Config struct {
-	Host string
-	Port int
+	ServerAddress common.NetAddress
 
 	PollInterval,
 	ReportInterval int
 }
 
 func NewConfig() Config {
-	var newConfig Config
-
-	// Конфигурируем адрес сервера
-	defaultHost := "localhost"
-	defaultPort := 8080
-
-	addr := &server.NetAddress{}
-	addr.Host = defaultHost
-	addr.Port = defaultPort
-
-	envAddr, hasEnvAddr := os.LookupEnv("ADDRESS")
-
-	if hasEnvAddr {
-		err := addr.Set(envAddr)
-		if err != nil {
-			addr.Host = defaultHost
-			addr.Port = defaultPort
-		}
-	} else {
-		flag.Var(addr, "a", "Адрес сервера")
+	newConfig := Config{
+		ServerAddress: common.NetAddress{
+			Host: "localhost",
+			Port: 8080,
+		},
 	}
+	
+	// Парсим аргументы командной строки
 
-	// Конфигурируем задержки
-	flagReportInterval := flag.Int("r", 10, "Частота опроса сервера в секундах")
-	flagPollInterval := flag.Int("p", 2, "Частота сбора метрик")
+	flag.IntVar(&newConfig.PollInterval, "p", DefaultPollInterval, "Частота сбора метрик")
+	flag.IntVar(&newConfig.ReportInterval, "r", DefaultReportInterval, "Частота опроса сервера в секундах")
+	flag.Var(&newConfig.ServerAddress, "a", "Адрес сервера")
 	flag.Parse()
 
-	var optPollInterval, optReportInterval int
+	// Берем опции из переменных окружения
 
-	// Частота опроса сервера
-	envReportInterval, hasEnvReportInterval := os.LookupEnv("REPORT_INTERVAL")
-	if hasEnvReportInterval {
-		envInt, err := strconv.Atoi(envReportInterval)
-		if err == nil {
-			optReportInterval = envInt
+	if envAddr := os.Getenv("ADDRESS"); len(envAddr) > 0 {
+		err := newConfig.ServerAddress.Set(envAddr)
+		if err != nil {
+			log.Fatalf("Invalid server address supplied, ADDRESS = %s", envAddr)
 		}
-	} else {
-		optReportInterval = *flagReportInterval
 	}
 
-	// Частота сбора метрик
-	envPollInterval, hasEnvPollInterval := os.LookupEnv("POLL_INTERVAL")
-	if hasEnvPollInterval {
-		envInt, err := strconv.Atoi(envPollInterval)
-		if err == nil {
-			optPollInterval = envInt
+	if envPollInt := os.Getenv("POLL_INTERVAL"); len(envPollInt) > 0 {
+		number, err := strconv.Atoi(envPollInt)
+		if err != nil {
+			number = DefaultReportInterval
 		}
-	} else {
-		optPollInterval = *flagPollInterval
+		newConfig.PollInterval = number
 	}
 
-	newConfig = Config{
-		Host: addr.Host,
-		Port: addr.Port,
-		PollInterval: optPollInterval,
-		ReportInterval: optReportInterval,
+	if envReportInt := os.Getenv("REPORT_INTERVAL"); len(envReportInt) > 0 {
+		number, err := strconv.Atoi(envReportInt)
+		if err != nil {
+			number = DefaultReportInterval
+		}
+		newConfig.ReportInterval = number
 	}
 
 	return newConfig

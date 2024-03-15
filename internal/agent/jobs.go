@@ -3,74 +3,16 @@ package agent
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"runtime"
 	"strconv"
-	"math/rand"
 
 	"github.com/go-resty/resty/v2"
 )
 
 // "Процесс" сборки метрик
-func (a *Agent) Poll() {
-	a.mGauge = a.pollMetrics()
-	a.pollCount += 1
-}
-
-// "Процесс" отправки метрик на сервер
-func (a *Agent) Report() {
-	for metricName, metricRaw := range a.mGauge {
-		metricValue := fmt.Sprintf("%f", metricRaw)
-
-		err := a.sendMetric("gauge", metricName, metricValue)
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-	}
-
-	// Сохраняем кол-во считываний
-	sendPollCount := strconv.Itoa(a.pollCount)
-
-	if err := a.sendMetric("counter", "PollCount", sendPollCount); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	// Сохраняем случайное значение
-	randomValue := fmt.Sprintf("%d", rand.Intn(10000))
-
-	if err := a.sendMetric("gauge", "RandomValue", randomValue); err != nil {
-		log.Println(err.Error())
-		return
-	}
-}
-
-// Функция отправки данных метрик на сервер
-func (a *Agent) sendMetric(metricType string, metricName string, metricValue string) error {
-	baseURL := "http://" + a.config.Host + ":" + strconv.Itoa(a.config.Port)
-	client := resty.New()
-
-	path := fmt.Sprintf("/update/%s/%s/%s", metricType, metricName, metricValue)
-
-	result, err := client.R().
-		SetHeader("Content-Type", "text/plain").
-		Post(baseURL + path)
-
-	if err != nil {
-		return fmt.Errorf("[%s] couldn't make http request: %s", metricName, err.Error())
-
-	}
-
-	if result.StatusCode() != http.StatusOK {
-		return fmt.Errorf("[%s] failed to save metric, code = %d", metricName, result.StatusCode())
-	}
-
-	return nil
-}
-
-// Считывание необходимых метрик
-func (a *Agent) pollMetrics() map[string]float64 {
+func (a *MetricAgent) Poll() map[string]float64 {
 	var rtm runtime.MemStats
 
 	runtime.ReadMemStats(&rtm)
@@ -104,5 +46,65 @@ func (a *Agent) pollMetrics() map[string]float64 {
 	result["Sys"] = float64(rtm.Sys)
 	result["TotalAlloc"] = float64(rtm.TotalAlloc)
 
+	// Увеличиваем счетчик
+	a.pollCount += 1
+
 	return result
+}
+
+// "Процесс" отправки метрик на сервер
+func (a *MetricAgent) Report(gaugeMetrics map[string]float64) {
+	for metricName, metricRaw := range gaugeMetrics {
+		metricValue := fmt.Sprintf("%f", metricRaw)
+
+		err := a.sendMetric("gauge", metricName, metricValue)
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+	}
+
+	// Сохраняем кол-во считываний
+	sendPollCount := strconv.Itoa(a.pollCount)
+
+	if err := a.sendMetric("counter", "PollCount", sendPollCount); err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	// Сохраняем случайное значение
+	randomValue := fmt.Sprintf("%d", rand.Intn(10000))
+
+	if err := a.sendMetric("gauge", "RandomValue", randomValue); err != nil {
+		log.Println(err.Error())
+		return
+	}
+}
+
+// Функция отправки данных метрик на сервер
+func (a *MetricAgent) sendMetric(metricType string, metricName string, metricValue string) error {
+	baseURL := fmt.Sprintf(
+		"http://%s:%d",
+		a.config.ServerAddress.Host,
+		a.config.ServerAddress.Port,
+	)
+
+	client := resty.New()
+
+	path := fmt.Sprintf("/update/%s/%s/%s", metricType, metricName, metricValue)
+
+	result, err := client.R().
+		SetHeader("Content-Type", "text/plain").
+		Post(baseURL + path)
+
+	if err != nil {
+		return fmt.Errorf("[%s] couldn't make http request: %s", metricName, err.Error())
+
+	}
+
+	if result.StatusCode() != http.StatusOK {
+		return fmt.Errorf("[%s] failed to save metric, code = %d", metricName, result.StatusCode())
+	}
+
+	return nil
 }

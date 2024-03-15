@@ -6,18 +6,14 @@ import (
 	"github.com/Sadere/ya-metrics/internal/agent/config"
 )
 
-type Agent struct {
-	config config.Config
-
-	mGauge map[string]float64
-
+type MetricAgent struct {
+	config    config.Config
 	pollCount int
 }
 
 func Run() {
-	agent := Agent{
+	agent := MetricAgent{
 		config:    config.NewConfig(),
-		mGauge:    make(map[string]float64),
 		pollCount: 0,
 	}
 
@@ -27,11 +23,11 @@ func Run() {
 		time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
 
 		// Считываем метрики
-		agent.Poll()
+		gaugeMetrics := agent.Poll()
 
-		// Задержка перед
+		// Задержка перед отправкой метрик на сервер
 		time.Sleep(time.Duration(agent.config.ReportInterval) * time.Second)
 
-		agent.Report()
+		agent.Report(gaugeMetrics)
 	}
 }
