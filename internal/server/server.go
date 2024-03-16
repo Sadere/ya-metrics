@@ -1,16 +1,17 @@
 package server
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 
-	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/Sadere/ya-metrics/internal/server/config"
+	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
-	config config.Config
+	config     config.Config
 	repository storage.MetricRepository
 }
 
@@ -32,7 +33,6 @@ func (s *Server) setupRouter() *gin.Engine {
 func (s *Server) StartServer() error {
 	r := s.setupRouter()
 
-
 	// Загружаем HTML шаблоны
 	execFile, _ := os.Executable()
 	execPath := filepath.Dir(execFile)
@@ -48,6 +48,6 @@ func Run() {
 
 	err := server.StartServer()
 	if err != nil {
-		panic(err)
+		log.Fatalf("couldn't launch server: %s", err.Error())
 	}
 }
