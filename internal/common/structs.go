@@ -2,8 +2,8 @@ package common
 
 import (
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 type NetAddress struct {
@@ -29,4 +29,18 @@ func (addr *NetAddress) Set(flagValue string) error {
 	}
 
 	return nil
+}
+
+type MetricType string
+
+const (
+	CounterMetric MetricType = "counter"
+	GaugeMetric   MetricType = "gauge"
+)
+
+
+type Metric struct {
+	Type MetricType
+	ValueGauge float64
+	ValueCounter int64
 }

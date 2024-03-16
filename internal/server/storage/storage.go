@@ -1,9 +1,13 @@
 package storage
 
-// Интерфейс для хранения данных о метриках
-type Storage interface {
-	Get(string) (interface{}, error)
-	Set(string, interface{}) error
+import (
+	"github.com/Sadere/ya-metrics/internal/common"
+)
 
-	GetData() map[string]interface{}
+// Интерфейс для хранения данных о метриках
+type MetricRepository interface {
+	Get(common.MetricType, string) (common.Metric, error)
+	Set(string, common.Metric) error
+
+	GetData() map[string]common.Metric
 }

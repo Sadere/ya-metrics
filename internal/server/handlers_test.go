@@ -10,7 +10,7 @@ import (
 )
 
 func TestServer_updateHandlers(t *testing.T) {
-	server := Server{storage: storage.NewMemStorage()}
+	server := Server{repository: storage.NewMemRepository()}
 
 	router := server.setupRouter()
 

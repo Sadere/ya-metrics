@@ -11,7 +11,7 @@ import (
 
 type Server struct {
 	config config.Config
-	storage storage.Storage
+	repository storage.MetricRepository
 }
 
 func (s *Server) setupRouter() *gin.Engine {
@@ -44,7 +44,7 @@ func (s *Server) StartServer() error {
 func Run() {
 	server := &Server{}
 	server.config = config.NewConfig()
-	server.storage = storage.NewMemStorage()
+	server.repository = storage.NewMemRepository()
 
 	err := server.StartServer()
 	if err != nil {
