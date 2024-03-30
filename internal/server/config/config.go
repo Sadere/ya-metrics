@@ -10,6 +10,7 @@ import (
 
 type Config struct {
 	Address common.NetAddress
+	LogLevel string
 }
 
 func NewConfig() Config {
@@ -20,6 +21,7 @@ func NewConfig() Config {
 		},
 	}
 
+	flag.StringVar(&newConfig.LogLevel, "v", "fatal", "Уровень лога, возможные значения: debug, info, warn, error, dpanic, panic, fatal")
 	flag.Var(&newConfig.Address, "a", "Адрес сервера")
 	flag.Parse()
 

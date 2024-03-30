@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/Sadere/ya-metrics/internal/server/config"
+	"github.com/Sadere/ya-metrics/internal/server/logger"
+	"github.com/Sadere/ya-metrics/internal/server/middleware"
 	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +18,19 @@ type Server struct {
 }
 
 func (s *Server) setupRouter() *gin.Engine {
-	r := gin.Default()
+	r := gin.New()
+
+	// Инициализируем логи
+	zapLogger, err := logger.NewZapLogger(s.config.LogLevel)
+	if err != nil {
+		log.Fatal("Couldn't initialize zap logger")
+	}
+
+	// Подключаем логи
+	r.Use(middleware.Logger(zapLogger))
+
+	// Стандартный обработчик паники
+	r.Use(gin.Recovery())
 
 	// Обработка обновления метрик
 	r.POST(`/update/:type/:metric/:value`, s.updateHandle)
@@ -31,6 +45,7 @@ func (s *Server) setupRouter() *gin.Engine {
 }
 
 func (s *Server) StartServer() error {
+	// Инициализируем роутер
 	r := s.setupRouter()
 
 	// Загружаем HTML шаблоны
