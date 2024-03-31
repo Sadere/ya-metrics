@@ -9,7 +9,7 @@ import (
 )
 
 type Config struct {
-	Address common.NetAddress
+	Address  common.NetAddress
 	LogLevel string
 }
 
