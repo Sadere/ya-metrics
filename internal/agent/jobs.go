@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -109,9 +111,25 @@ func (a *MetricAgent) sendMetric(metricType string, metricName string, metricVal
 		return fmt.Errorf("[%s] couldn't create json body: %s", metricName, err.Error())
 	}
 
+	// Сжимаем тело запроса
+	buf := bytes.NewBuffer(nil)
+	gz := gzip.NewWriter(buf)
+
+	_, err = gz.Write(body)
+	if err != nil {
+		return fmt.Errorf("[%s] couldn't write gzip data: %s", metricName, err.Error())
+	}
+
+	err = gz.Close()
+	if err != nil {
+		return fmt.Errorf("[%s] couldn't close gzip writer: %s", metricName, err.Error())
+	}
+
 	result, err := client.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(body).
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("Accept-Encoding", "gzip").
+		SetBody(buf.Bytes()).
 		Post(baseURL + path)
 
 	if err != nil {
