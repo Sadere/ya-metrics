@@ -39,9 +39,9 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 		return
 	}
 
-	err = s.repository.Set(name, common.Metric{
-		Type:       common.GaugeMetric,
-		ValueGauge: valueFloat,
+	err = s.repository.Set(name, common.Metrics{
+		MType: string(common.GaugeMetric),
+		Value: &valueFloat,
 	})
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
@@ -60,37 +60,45 @@ func (s *Server) updateCounterHandle(c *gin.Context) {
 		return
 	}
 
-	metric, err := s.repository.Get(common.CounterMetric, name)
-	if err != nil {
-		// Создаем новую метрику если нет такой
-		metric = common.Metric{
-			Type: common.CounterMetric,
-		}
-	}
-
 	addValue, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
-
-	metric.ValueCounter += addValue
-
-	err = s.repository.Set(name, metric)
+	
+	_, err = s.addOrSetCounter(name, addValue)
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
-		return
 	}
 
 	c.Header("Content-Type", "text/plain; charset=utf-8")
+}
 
-	fmt.Println(s.repository)
+func (s *Server) addOrSetCounter(name string, addValue int64) (common.Metrics, error) {
+	metric, err := s.repository.Get(common.CounterMetric, name)
+	if err != nil {
+		// Создаем новую метрику если нет такой
+		deltaVar := int64(0)
+		metric = common.Metrics{
+			MType: string(common.CounterMetric),
+			Delta: &deltaVar,
+		}
+	}
+
+	*metric.Delta += addValue
+
+	err = s.repository.Set(name, metric)
+	if err != nil {
+		return metric, err
+	}
+
+	return metric, nil
 }
 
 func (s *Server) getMetricHandle(c *gin.Context) {
 	metricType := c.Param("type")
 	metricName := c.Param("metric")
-	
+
 	switch metricType {
 	case string(common.CounterMetric):
 		metric, err := s.repository.Get(common.CounterMetric, metricName)
@@ -98,14 +106,14 @@ func (s *Server) getMetricHandle(c *gin.Context) {
 			c.String(http.StatusNotFound, err.Error())
 			return
 		}
-		c.String(http.StatusOK, fmt.Sprintf("%v", metric.ValueCounter))
+		c.String(http.StatusOK, fmt.Sprintf("%v", *metric.Delta))
 	case string(common.GaugeMetric):
 		metric, err := s.repository.Get(common.GaugeMetric, metricName)
 		if err != nil {
 			c.String(http.StatusNotFound, err.Error())
 			return
 		}
-		c.String(http.StatusOK, fmt.Sprintf("%v", metric.ValueGauge))
+		c.String(http.StatusOK, fmt.Sprintf("%v", *metric.Value))
 	default:
 		c.String(http.StatusNotFound, "unknown metric type")
 	}
@@ -121,13 +129,20 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 	metrics := make([]metric, len(data))
 
 	for k, v := range data {
-		metrics = append(metrics, metric{
-			Name:  k,
-			Value: fmt.Sprintf("%v", v),
-		})
-	}
+		m := metric{
+			Name: k,
+		}
 
-	fmt.Println(metrics)
+		if v.MType == string(common.CounterMetric) {
+			m.Value = fmt.Sprintf("%d", *v.Delta)
+		}
+
+		if v.MType == string(common.GaugeMetric) {
+			m.Value = fmt.Sprintf("%f", *v.Value)
+		}
+
+		metrics = append(metrics, m)
+	}
 
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"Metrics": metrics,

@@ -34,9 +34,11 @@ func (s *Server) setupRouter() *gin.Engine {
 
 	// Обработка обновления метрик
 	r.POST(`/update/:type/:metric/:value`, s.updateHandle)
+	r.POST(`/update/`, middleware.JSON(), s.updateHandleJSON)
 
 	// Вывод метрики
 	r.GET(`/value/:type/:metric`, s.getMetricHandle)
+	r.POST(`/value/`, middleware.JSON(), s.getMetricHandleJSON)
 
 	// Вывод всех метрик в HTML
 	r.GET(`/`, s.getAllMetricsHandle)
