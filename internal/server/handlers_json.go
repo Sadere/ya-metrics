@@ -18,15 +18,16 @@ func (s *Server) updateHandleJSON(c *gin.Context) {
 
 	switch metric.MType {
 	case string(common.GaugeMetric):
-		s.repository.Set(metric.ID, metric)
+		err = s.repository.Set(metric.ID, metric)
 	case string(common.CounterMetric):
 		metric, err = s.addOrSetCounter(metric.ID, *metric.Delta)
-		if err != nil {
-			c.String(http.StatusBadRequest, err.Error())
-		}
 	default:
 		c.String(http.StatusBadRequest, "Unknown metric type")
 		return
+	}
+
+	if err != nil {
+		c.String(http.StatusBadRequest, err.Error())
 	}
 
 	c.JSON(http.StatusOK, metric)
