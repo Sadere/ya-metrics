@@ -11,6 +11,7 @@ import (
 
 func TestServer_updateHandlers(t *testing.T) {
 	server := Server{repository: storage.NewMemRepository()}
+	server.InitLogging()
 
 	router := server.setupRouter()
 

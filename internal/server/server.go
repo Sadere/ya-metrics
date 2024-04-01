@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -20,14 +21,8 @@ type Server struct {
 func (s *Server) setupRouter() *gin.Engine {
 	r := gin.New()
 
-	// Инициализируем логи
-	zapLogger, err := logger.NewZapLogger(s.config.LogLevel)
-	if err != nil {
-		log.Fatal("Couldn't initialize zap logger")
-	}
-
 	// Подключаем логи
-	r.Use(middleware.Logger(zapLogger))
+	r.Use(middleware.Logger(logger.Log))
 
 	// Стандартный обработчик паники
 	r.Use(gin.Recovery())
@@ -62,13 +57,37 @@ func (s *Server) StartServer() error {
 	return r.Run(s.config.Address.String())
 }
 
+func (s *Server) InitLogging() {
+	zapLogger, err := logger.NewZapLogger(s.config.LogLevel)
+	if err != nil {
+		log.Fatal("Couldn't initialize zap logger")
+	}
+	logger.Log = zapLogger
+}
+
 func Run() {
 	server := &Server{}
 	server.config = config.NewConfig()
-	server.repository = storage.NewMemRepository()
 
+	// Инициализируем логи
+	server.InitLogging()
+
+	// Выбираем хранилище метрик
+	if len(server.config.FileStoragePath) <= 0 {
+		server.repository = storage.NewMemRepository()
+	} else {
+		fileRepository, err := storage.NewFileRepository(server.config)
+		if err != nil {
+			logger.Log.Sugar().Fatalf("failed to initialize file storage: %s", err.Error())
+			return
+		}
+
+		server.repository = fileRepository
+	}
+
+	// Запускаем сервер
 	err := server.StartServer()
 	if err != nil {
-		log.Fatalf("couldn't launch server: %s", err.Error())
+		logger.Log.Fatal(fmt.Sprintf("couldn't launch server: %s", err.Error()))
 	}
 }
