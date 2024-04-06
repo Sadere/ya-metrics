@@ -89,3 +89,15 @@ func (m MemMetricRepository) GetData() map[string]common.Metrics {
 
 	return result
 }
+
+
+func (m MemMetricRepository) SetData(metrics map[string]common.Metrics) {
+	for k, v := range metrics {
+		switch v.MType {
+		case string(common.CounterMetric):
+			m.MetricCounters[k] = *v.Delta
+		case string(common.GaugeMetric):
+			m.MetricGauges[k] = *v.Value
+		}
+	}
+}
