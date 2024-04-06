@@ -59,7 +59,7 @@ func GzipCompress() gin.HandlerFunc {
 	}
 }
 
-func GzipDeCompress() gin.HandlerFunc {
+func GzipDecompress() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mustDecompress := c.Request.Header.Get("Content-Encoding") == "gzip"
 

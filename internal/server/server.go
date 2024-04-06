@@ -28,7 +28,7 @@ func (s *Server) setupRouter() *gin.Engine {
 	r.Use(gin.Recovery())
 
 	// Используем сжатие
-	r.Use(middleware.GzipDeCompress())
+	r.Use(middleware.GzipDecompress())
 	r.Use(middleware.GzipCompress())
 
 	// Обработка обновления метрик
