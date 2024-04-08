@@ -20,8 +20,8 @@ func NewMemRepository() *MemMetricRepository {
 	}
 }
 
-func (m MemMetricRepository) Get(metricType common.MetricType, key string) (common.Metric, error) {
-	metric := common.Metric{}
+func (m MemMetricRepository) Get(metricType common.MetricType, key string) (common.Metrics, error) {
+	metric := common.Metrics{}
 
 	if len(key) == 0 {
 		return metric, errors.New("key shouldn't be empty")
@@ -33,55 +33,71 @@ func (m MemMetricRepository) Get(metricType common.MetricType, key string) (comm
 		if !ok {
 			return metric, fmt.Errorf("no data with %s key", key)
 		}
-		metric.Type = common.CounterMetric
-		metric.ValueCounter = value
+		metric.MType = string(common.CounterMetric)
+		metric.Delta = &value
 	case common.GaugeMetric:
 		value, ok := m.MetricGauges[key]
 		if !ok {
 			return metric, fmt.Errorf("no data with %s key", key)
 		}
-		metric.Type = common.GaugeMetric
-		metric.ValueGauge = value
+		metric.MType = string(common.GaugeMetric)
+		metric.Value = &value
 	default:
 		return metric, fmt.Errorf("invalid metric type %s ", metricType)
 	}
 
+	metric.ID = key
+
 	return metric, nil
 }
 
-func (m MemMetricRepository) Set(key string, metric common.Metric) error {
+func (m MemMetricRepository) Set(key string, metric common.Metrics) error {
 	if len(key) == 0 {
 		return errors.New("key shouldn't be empty")
 	}
 
-	switch metric.Type {
-	case common.CounterMetric:
-		m.MetricCounters[key] = metric.ValueCounter
-	case common.GaugeMetric:
-		m.MetricGauges[key] = metric.ValueGauge
+	switch metric.MType {
+	case string(common.CounterMetric):
+		m.MetricCounters[key] = *metric.Delta
+	case string(common.GaugeMetric):
+		m.MetricGauges[key] = *metric.Value
 	default:
-		return fmt.Errorf("invalid metric type %s ", metric.Type)
+		return fmt.Errorf("invalid metric type %s ", metric.MType)
 	}
 
 	return nil
 }
 
-func (m MemMetricRepository) GetData() map[string]common.Metric {
-	result := make(map[string]common.Metric)
+func (m MemMetricRepository) GetData() map[string]common.Metrics {
+	result := make(map[string]common.Metrics)
 
 	for k, v := range m.MetricCounters {
-		result[k] = common.Metric{
-			Type:         common.CounterMetric,
-			ValueCounter: v,
+		result[k] = common.Metrics{
+			ID:    k,
+			MType: string(common.CounterMetric),
+			Delta: &v,
 		}
 	}
 
 	for k, v := range m.MetricGauges {
-		result[k] = common.Metric{
-			Type:       common.CounterMetric,
-			ValueGauge: v,
+		result[k] = common.Metrics{
+			ID:    k,
+			MType: string(common.GaugeMetric),
+			Value: &v,
 		}
 	}
 
 	return result
+}
+
+
+func (m MemMetricRepository) SetData(metrics map[string]common.Metrics) {
+	for k, v := range metrics {
+		switch v.MType {
+		case string(common.CounterMetric):
+			m.MetricCounters[k] = *v.Delta
+		case string(common.GaugeMetric):
+			m.MetricGauges[k] = *v.Value
+		}
+	}
 }

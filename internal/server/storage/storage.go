@@ -6,8 +6,9 @@ import (
 
 // Интерфейс для хранения данных о метриках
 type MetricRepository interface {
-	Get(common.MetricType, string) (common.Metric, error)
-	Set(string, common.Metric) error
+	Get(common.MetricType, string) (common.Metrics, error)
+	Set(string, common.Metrics) error
 
-	GetData() map[string]common.Metric
+	GetData() map[string]common.Metrics
+	SetData(map[string]common.Metrics)
 }
