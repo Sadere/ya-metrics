@@ -9,6 +9,6 @@ type MetricRepository interface {
 	Get(common.MetricType, string) (common.Metrics, error)
 	Set(string, common.Metrics) error
 
-	GetData() map[string]common.Metrics
-	SetData(map[string]common.Metrics)
+	GetData() (map[string]common.Metrics, error)
+	SetData(map[string]common.Metrics) error
 }

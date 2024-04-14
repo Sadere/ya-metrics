@@ -60,7 +60,7 @@ func (s *Server) setupRouter() *gin.Engine {
 func (s *Server) restoreState() {
 	restoredState, err := s.fileManager.ReadMetrics()
 	if err != nil {
-		s.log.Sugar().Errorf("unable to restore state: %s", err.Error())
+		s.log.Sugar().Errorf("unable to read state from file: %s", err.Error())
 	}
 
 	metricsData := make(map[string]common.Metrics)
@@ -69,11 +69,17 @@ func (s *Server) restoreState() {
 		metricsData[m.ID] = m
 	}
 
-	s.repository.SetData(metricsData)
+	err = s.repository.SetData(metricsData)
+	if err != nil {
+		s.log.Sugar().Errorf("unable to restore state: %s", err.Error())
+	}
 }
 
 func (s *Server) saveState() {
-	metrics := s.repository.GetData()
+	metrics, err := s.repository.GetData()
+	if err != nil {
+		s.log.Sugar().Errorf("unable to read state for saving: %s", err.Error())
+	}
 
 	savedState := make([]common.Metrics, 0)
 

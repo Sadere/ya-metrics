@@ -65,7 +65,7 @@ func (s *Server) updateCounterHandle(c *gin.Context) {
 		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
-	
+
 	_, err = s.addOrSetCounter(name, addValue)
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
@@ -83,7 +83,9 @@ func (s *Server) addOrSetCounter(name string, addValue int64) (common.Metrics, e
 			MType: string(common.CounterMetric),
 			Delta: &deltaVar,
 		}
+		fmt.Println("wat")
 	}
+	fmt.Printf("%+v\n", metric)
 
 	*metric.Delta += addValue
 
@@ -125,7 +127,12 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 		Value string
 	}
 
-	data := s.repository.GetData()
+	data, err := s.repository.GetData()
+	if err != nil {
+		c.String(http.StatusNotFound, err.Error())
+		return
+	}
+	
 	metrics := make([]metric, len(data))
 
 	for k, v := range data {
