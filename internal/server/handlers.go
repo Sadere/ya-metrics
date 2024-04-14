@@ -148,3 +148,13 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 		"Metrics": metrics,
 	})
 }
+
+func (s *Server) pingHandle(c *gin.Context) {
+	err := s.db.Ping()
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+	} else {
+		c.Status(http.StatusOK)
+	}
+}

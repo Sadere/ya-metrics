@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +24,7 @@ type Server struct {
 	repository  storage.MetricRepository
 	fileManager *storage.FileManager
 	log         *zap.Logger
+	db          *sql.DB
 }
 
 func (s *Server) setupRouter() *gin.Engine {
@@ -45,6 +47,9 @@ func (s *Server) setupRouter() *gin.Engine {
 	// Вывод метрики
 	r.GET(`/value/:type/:metric`, s.getMetricHandle)
 	r.POST(`/value/`, middleware.JSON(), s.getMetricHandleJSON)
+
+	// Проверка подключения к бд
+	r.GET(`/ping`, s.pingHandle)
 
 	// Вывод всех метрик в HTML
 	r.GET(`/`, s.getAllMetricsHandle)
@@ -127,8 +132,20 @@ func (s *Server) InitLogging() {
 func Run() {
 	server := &Server{}
 	server.config = config.NewConfig()
-	server.repository = storage.NewMemRepository()
 	server.fileManager = storage.NewFileManager(server.config.FileStoragePath)
+
+	// Выбираем хранилище
+	if len(server.config.PostgresDSN) > 0 {
+		db, err := sql.Open("pgx", server.config.PostgresDSN)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		server.db = db
+		server.repository = storage.NewPgRepository(db)
+	} else {
+		server.repository = storage.NewMemRepository()
+	}
 
 	// Инициализируем логи
 	server.InitLogging()
