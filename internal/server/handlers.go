@@ -127,7 +127,12 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 		Value string
 	}
 
-	data := s.repository.GetData()
+	data, err := s.repository.GetData()
+	if err != nil {
+		c.String(http.StatusNotFound, err.Error())
+		return
+	}
+	
 	metrics := make([]metric, len(data))
 
 	for k, v := range data {

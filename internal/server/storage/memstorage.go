@@ -68,7 +68,7 @@ func (m MemMetricRepository) Set(key string, metric common.Metrics) error {
 	return nil
 }
 
-func (m MemMetricRepository) GetData() map[string]common.Metrics {
+func (m MemMetricRepository) GetData() (map[string]common.Metrics, error) {
 	result := make(map[string]common.Metrics)
 
 	for k, v := range m.MetricCounters {
@@ -87,11 +87,11 @@ func (m MemMetricRepository) GetData() map[string]common.Metrics {
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 
-func (m MemMetricRepository) SetData(metrics map[string]common.Metrics) {
+func (m MemMetricRepository) SetData(metrics map[string]common.Metrics) error {
 	for k, v := range metrics {
 		switch v.MType {
 		case string(common.CounterMetric):
@@ -100,4 +100,6 @@ func (m MemMetricRepository) SetData(metrics map[string]common.Metrics) {
 			m.MetricGauges[k] = *v.Value
 		}
 	}
+
+	return nil
 }

@@ -44,12 +44,12 @@ func (m PgMetricRepository) Set(key string, metric common.Metrics) error {
 	return nil
 }
 
-func (m PgMetricRepository) GetData() map[string]common.Metrics {
+func (m PgMetricRepository) GetData() (map[string]common.Metrics, error) {
 	metrics := make(map[string]common.Metrics)
 
 	rows, err := m.db.Query("SELECT name, mtype, delta, value FROM metrics")
 	if err != nil {
-		return metrics
+		return metrics, err
 	}
 	defer rows.Close()
 
@@ -62,13 +62,19 @@ func (m PgMetricRepository) GetData() map[string]common.Metrics {
 		}
 	}
 
-	return metrics
+	if err = rows.Err(); err != nil {
+		return metrics, nil
+	}
+
+	return metrics, nil
 }
 
-func (m PgMetricRepository) SetData(metrics map[string]common.Metrics) {
+func (m PgMetricRepository) SetData(metrics map[string]common.Metrics) error {
 	for key, metric := range metrics {
 		if err := m.Set(key, metric); err != nil {
-			return
+			return err
 		}
 	}
+
+	return nil
 }
