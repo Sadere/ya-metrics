@@ -33,7 +33,7 @@ func NewConfig() Config {
 
 	flag.StringVar(&newConfig.LogLevel, "v", "fatal", "Уровень лога, возможные значения: debug, info, warn, error, dpanic, panic, fatal")
 	flag.Var(&newConfig.Address, "a", "Адрес сервера")
-	flag.IntVar(&newConfig.StoreInterval, "i", DefaultStoreInterval, "Bнтервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск (значение 0 делает запись синхронной)")
+	flag.IntVar(&newConfig.StoreInterval, "i", DefaultStoreInterval, "Интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск (значение 0 делает запись синхронной)")
 	flag.StringVar(&newConfig.FileStoragePath, "f", DefaultFileStoragePath, "Путь к файлу, хранящему данные метрик")
 	flag.BoolVar(&newConfig.Restore, "r", true, "Флаг, указывающий нужно ли восстанавливать данные из файла")
 	flag.StringVar(&newConfig.PostgresDSN, "d", "", "DSN для postgresql")

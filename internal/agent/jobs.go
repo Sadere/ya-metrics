@@ -57,32 +57,53 @@ func (a *MetricAgent) Poll() map[string]float64 {
 
 // "Процесс" отправки метрик на сервер
 func (a *MetricAgent) Report(gaugeMetrics map[string]float64) {
-	for metricName, metricValue := range gaugeMetrics {
+	var metricsToSend []common.Metrics
 
-		err := a.sendMetric("gauge", metricName, metricValue, 0)
-		if err != nil {
-			log.Println(err.Error())
-			return
+	for metricName, metricValue := range gaugeMetrics {
+		m := common.Metrics{
+			ID: metricName,
+			MType: string(common.GaugeMetric),
+			Value: &metricValue,
 		}
+
+		metricsToSend = append(metricsToSend, m)
+	}
+
+	err := a.sendMetrics(metricsToSend)
+	if err != nil {
+		log.Println(err.Error())
+		return
 	}
 
 	// Сохраняем кол-во считываний
-	if err := a.sendMetric("counter", "PollCount", 0, int64(a.pollCount)); err != nil {
+	pollCount := int64(a.pollCount)
+	pollCountMetric := common.Metrics{
+		ID: "PollCount",
+		MType: string(common.CounterMetric),
+		Delta: &pollCount,
+	}
+
+	if err := a.sendMetrics([]common.Metrics{pollCountMetric}); err != nil {
 		log.Println(err.Error())
 		return
 	}
 
 	// Сохраняем случайное значение
 	randomValue := float64(rand.Intn(10000))
+	randomValueMetric := common.Metrics{
+		ID: "RandomValue",
+		MType: string(common.GaugeMetric),
+		Value: &randomValue,
+	}
 
-	if err := a.sendMetric("gauge", "RandomValue", randomValue, 0); err != nil {
+	if err := a.sendMetrics([]common.Metrics{randomValueMetric}); err != nil {
 		log.Println(err.Error())
 		return
 	}
 }
 
 // Функция отправки данных метрик на сервер
-func (a *MetricAgent) sendMetric(metricType string, metricName string, metricValue float64, metricDelta int64) error {
+func (a *MetricAgent) sendMetrics(metrics []common.Metrics) error {
 	baseURL := fmt.Sprintf(
 		"http://%s:%d",
 		a.config.ServerAddress.Host,
@@ -91,24 +112,11 @@ func (a *MetricAgent) sendMetric(metricType string, metricName string, metricVal
 
 	client := resty.New()
 
-	path := "/update/"
+	path := "/updates/"
 
-	metric := common.Metrics{
-		ID:    metricName,
-		MType: metricType,
-	}
-
-	if metricType == string(common.GaugeMetric) {
-		metric.Value = &metricValue
-	}
-
-	if metricType == string(common.CounterMetric) {
-		metric.Delta = &metricDelta
-	}
-
-	body, err := json.Marshal(metric)
+	body, err := json.Marshal(metrics)
 	if err != nil {
-		return fmt.Errorf("[%s] couldn't create json body: %s", metricName, err.Error())
+		return fmt.Errorf("couldn't create json body: %s", err.Error())
 	}
 
 	// Сжимаем тело запроса
@@ -117,12 +125,12 @@ func (a *MetricAgent) sendMetric(metricType string, metricName string, metricVal
 
 	_, err = gz.Write(body)
 	if err != nil {
-		return fmt.Errorf("[%s] couldn't write gzip data: %s", metricName, err.Error())
+		return fmt.Errorf("couldn't write gzip data: %s", err.Error())
 	}
 
 	err = gz.Close()
 	if err != nil {
-		return fmt.Errorf("[%s] couldn't close gzip writer: %s", metricName, err.Error())
+		return fmt.Errorf("couldn't close gzip writer: %s", err.Error())
 	}
 
 	result, err := client.R().
@@ -133,11 +141,11 @@ func (a *MetricAgent) sendMetric(metricType string, metricName string, metricVal
 		Post(baseURL + path)
 
 	if err != nil {
-		return fmt.Errorf("[%s] couldn't make http request: %s", metricName, err.Error())
+		return fmt.Errorf("couldn't make http request: %s", err.Error())
 	}
 
 	if result.StatusCode() != http.StatusOK {
-		return fmt.Errorf("[%s] failed to save metric, code = %d", metricName, result.StatusCode())
+		return fmt.Errorf("failed to save metric, code = %d", result.StatusCode())
 	}
 
 	return nil

@@ -18,7 +18,7 @@ func (s *Server) updateHandleJSON(c *gin.Context) {
 
 	switch metric.MType {
 	case string(common.GaugeMetric):
-		err = s.repository.Set(metric.ID, metric)
+		err = s.repository.Set(metric)
 	case string(common.CounterMetric):
 		metric, err = s.addOrSetCounter(metric.ID, *metric.Delta)
 	default:
@@ -57,4 +57,43 @@ func (s *Server) getMetricHandleJSON(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, metric)
+}
+
+func (s *Server) updateBatchHandleJSON(c *gin.Context) {
+	var metrics []common.Metrics
+	var err error
+
+	if err := c.BindJSON(&metrics); err != nil {
+		msg := "failed to parse metric list"
+
+		s.log.Sugar().Error(msg)
+
+		c.String(http.StatusBadRequest, msg)
+		return
+	}
+
+	for _, metric := range metrics {
+		switch metric.MType {
+		case string(common.GaugeMetric):
+			err = s.repository.Set(metric)
+		case string(common.CounterMetric):
+			metric, err = s.addOrSetCounter(metric.ID, *metric.Delta)
+		default:
+			msg := "unknown metric type"
+
+			s.log.Sugar().Error(msg)
+
+			c.String(http.StatusBadRequest, msg)
+			return
+		}
+
+		if err != nil {
+			s.log.Sugar().Error(err.Error())
+
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	c.Status(http.StatusOK)
 }
