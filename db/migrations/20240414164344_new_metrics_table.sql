@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS metrics (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     mtype metric_type NOT NULL,
-    delta INT NULL,
+    delta BIGINT NULL,
     value DOUBLE PRECISION NULL
 )
 -- +goose StatementEnd
