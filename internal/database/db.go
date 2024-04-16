@@ -10,17 +10,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-const MAX_RETRIES = 3
+const MaxRetries = 3
 
 var (
-	ErrDbConnection = errors.New("")
+	ErrDBConnection = errors.New("")
 )
 
 func TryQueryRow(db *sqlx.DB, sql string, args ...any) (*sql.Row, error) {
 	var err error
 	timeOut := 1
 
-	for tryCount := 0; tryCount < MAX_RETRIES; tryCount++ {
+	for tryCount := 0; tryCount < MaxRetries; tryCount++ {
 		row := db.QueryRow(sql, args...)
 		err = row.Err()
 
@@ -37,14 +37,13 @@ func TryQueryRow(db *sqlx.DB, sql string, args ...any) (*sql.Row, error) {
 		timeOut += 2
 	}
 
-	return nil, ErrDbConnection
+	return nil, ErrDBConnection
 }
 
-
-func TryExec(db *sqlx.DB, sql string, args ...any) (sql.Result, error) {	
+func TryExec(db *sqlx.DB, sql string, args ...any) (sql.Result, error) {
 	timeOut := 1
 
-	for tryCount := 0; tryCount < MAX_RETRIES; tryCount++ {
+	for tryCount := 0; tryCount < MaxRetries; tryCount++ {
 		result, err := db.Exec(sql, args...)
 		if err == nil {
 			return result, nil
@@ -59,5 +58,5 @@ func TryExec(db *sqlx.DB, sql string, args ...any) (sql.Result, error) {
 		timeOut += 2
 	}
 
-	return nil, ErrDbConnection
+	return nil, ErrDBConnection
 }

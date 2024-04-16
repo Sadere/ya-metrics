@@ -29,7 +29,7 @@ func (s *Server) updateHandleJSON(c *gin.Context) {
 	}
 
 	if err != nil {
-		if errors.Is(err, database.ErrDbConnection) {
+		if errors.Is(err, database.ErrDBConnection) {
 			c.String(http.StatusInternalServerError, "server's storage is down")
 			return
 		}
@@ -59,7 +59,7 @@ func (s *Server) getMetricHandleJSON(c *gin.Context) {
 	}
 
 	if err != nil {
-		if errors.Is(err, database.ErrDbConnection) {
+		if errors.Is(err, database.ErrDBConnection) {
 			c.String(http.StatusInternalServerError, "server's storage is down")
 			return
 		}
@@ -100,7 +100,7 @@ func (s *Server) updateBatchHandleJSON(c *gin.Context) {
 		}
 
 		if err != nil {
-			if errors.Is(err, database.ErrDbConnection) {
+			if errors.Is(err, database.ErrDBConnection) {
 				c.String(http.StatusInternalServerError, "server's storage is down")
 				return
 			}

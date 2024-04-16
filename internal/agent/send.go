@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	MAX_RETRIES = 3 // Максимальное кол-во попыток для отправки данных
+	MaxRetries = 3 // Максимальное кол-во попыток для отправки данных
 )
 
 // Обертка к функции отправки данных, позволяющая контроллировать сколько попыток будет для успешной отправки
@@ -23,7 +23,7 @@ func (a *MetricAgent) trySendMetrics(metrics []common.Metrics) error {
 
 	timeOut := 1
 
-	for tryCount := 0; tryCount < MAX_RETRIES; tryCount++ {
+	for tryCount := 0; tryCount < MaxRetries; tryCount++ {
 		err = a.sendMetrics(metrics)
 
 		if err == nil {
