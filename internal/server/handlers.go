@@ -39,7 +39,8 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 		return
 	}
 
-	err = s.repository.Set(name, common.Metrics{
+	err = s.repository.Set(common.Metrics{
+		ID: name,
 		MType: string(common.GaugeMetric),
 		Value: &valueFloat,
 	})
@@ -80,16 +81,15 @@ func (s *Server) addOrSetCounter(name string, addValue int64) (common.Metrics, e
 		// Создаем новую метрику если нет такой
 		deltaVar := int64(0)
 		metric = common.Metrics{
+			ID:    name,
 			MType: string(common.CounterMetric),
 			Delta: &deltaVar,
 		}
-		fmt.Println("wat")
 	}
-	fmt.Printf("%+v\n", metric)
 
 	*metric.Delta += addValue
 
-	err = s.repository.Set(name, metric)
+	err = s.repository.Set(metric)
 	if err != nil {
 		return metric, err
 	}
@@ -132,7 +132,7 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 		c.String(http.StatusNotFound, err.Error())
 		return
 	}
-	
+
 	metrics := make([]metric, len(data))
 
 	for k, v := range data {

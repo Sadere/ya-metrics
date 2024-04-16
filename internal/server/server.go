@@ -1,7 +1,6 @@
 package server
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/Sadere/ya-metrics/internal/server/middleware"
 	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
 
@@ -24,7 +24,7 @@ type Server struct {
 	repository  storage.MetricRepository
 	fileManager *storage.FileManager
 	log         *zap.Logger
-	db          *sql.DB
+	db          *sqlx.DB
 }
 
 func (s *Server) setupRouter() *gin.Engine {
@@ -50,6 +50,9 @@ func (s *Server) setupRouter() *gin.Engine {
 
 	// Проверка подключения к бд
 	r.GET(`/ping`, s.pingHandle)
+
+	// Добавление нескольких метрик
+	r.POST(`/updates/`, middleware.JSON(), s.updateBatchHandleJSON)
 
 	// Вывод всех метрик в HTML
 	r.GET(`/`, s.getAllMetricsHandle)
@@ -142,7 +145,7 @@ func Run() {
 
 	// Выбираем хранилище
 	if len(server.config.PostgresDSN) > 0 {
-		db, err := sql.Open("pgx", server.config.PostgresDSN)
+		db, err := sqlx.Connect("pgx", server.config.PostgresDSN)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
