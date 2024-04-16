@@ -1,9 +1,11 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Sadere/ya-metrics/internal/common"
+	"github.com/Sadere/ya-metrics/internal/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,6 +29,11 @@ func (s *Server) updateHandleJSON(c *gin.Context) {
 	}
 
 	if err != nil {
+		if errors.Is(err, database.ErrDbConnection) {
+			c.String(http.StatusInternalServerError, "server's storage is down")
+			return
+		}
+
 		c.String(http.StatusBadRequest, err.Error())
 	}
 
@@ -48,10 +55,15 @@ func (s *Server) getMetricHandleJSON(c *gin.Context) {
 	case string(common.CounterMetric):
 		metric, err = s.repository.Get(common.CounterMetric, metric.ID)
 	default:
-		c.String(http.StatusBadRequest, "Unknown metric type")
+		c.String(http.StatusBadRequest, "unknown metric type")
 	}
 
 	if err != nil {
+		if errors.Is(err, database.ErrDbConnection) {
+			c.String(http.StatusInternalServerError, "server's storage is down")
+			return
+		}
+
 		c.String(http.StatusNotFound, err.Error())
 		return
 	}
@@ -88,9 +100,14 @@ func (s *Server) updateBatchHandleJSON(c *gin.Context) {
 		}
 
 		if err != nil {
+			if errors.Is(err, database.ErrDbConnection) {
+				c.String(http.StatusInternalServerError, "server's storage is down")
+				return
+			}
+
 			s.log.Sugar().Error(err.Error())
 
-			c.String(http.StatusBadRequest, err.Error())
+			c.String(http.StatusInternalServerError, "unknown error")
 			return
 		}
 	}

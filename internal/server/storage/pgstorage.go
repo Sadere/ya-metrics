@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Sadere/ya-metrics/internal/common"
+	"github.com/Sadere/ya-metrics/internal/database"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 )
@@ -20,9 +21,12 @@ func NewPgRepository(db *sqlx.DB) *PgMetricRepository {
 func (m PgMetricRepository) Get(metricType common.MetricType, key string) (common.Metrics, error) {
 	var metric common.Metrics
 
-	row := m.db.QueryRow("SELECT name, mtype, delta, value FROM metrics WHERE name = $1 AND mtype = $2", key, metricType)
+	row, err := database.TryQueryRow(m.db, "SELECT name, mtype, delta, value FROM metrics WHERE name = $1 AND mtype = $2", key, metricType)
+	if err != nil {
+		return metric, err
+	}
 
-	err := row.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)
+	err = row.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)
 	if err != nil {
 		return metric, err
 	}
@@ -31,7 +35,7 @@ func (m PgMetricRepository) Get(metricType common.MetricType, key string) (commo
 }
 
 func (m PgMetricRepository) Set(metric common.Metrics) error {
-	updateResult, err := m.db.Exec("UPDATE metrics SET delta = $1, value = $2 WHERE name = $3",
+	updateResult, err := database.TryExec(m.db, "UPDATE metrics SET delta = $1, value = $2 WHERE name = $3",
 		metric.Delta,
 		metric.Value,
 		metric.ID,
@@ -51,7 +55,7 @@ func (m PgMetricRepository) Set(metric common.Metrics) error {
 	}
 
 	// Метрики не существует в БД, добавляем
-	_, err = m.db.Exec(
+	_, err = database.TryExec(m.db,
 		"INSERT INTO metrics (name, mtype, delta, value) VALUES ($1, $2, $3, $4)",
 		metric.ID,
 		metric.MType,
