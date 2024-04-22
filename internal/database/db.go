@@ -5,58 +5,64 @@ import (
 	"errors"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 )
 
-const MaxRetries = 3
-
-var (
-	ErrDBConnection = errors.New("")
+const (
+	InitialInterval = time.Second
+	MaxRetries      = 3
 )
 
-func TryQueryRow(db *sqlx.DB, sql string, args ...any) (*sql.Row, error) {
-	var err error
-	timeOut := 1
+var (
+	ErrDBConnection = errors.New("couldn't establish db connection")
+)
 
-	for tryCount := 0; tryCount < MaxRetries; tryCount++ {
-		row := db.QueryRow(sql, args...)
-		err = row.Err()
-
-		if err == nil {
-			return row, nil
-		}
-
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && !pgerrcode.IsConnectionException(pgErr.Code) {
-			return nil, err
-		}
-
-		time.Sleep(time.Duration(timeOut) * time.Second)
-		timeOut += 2
-	}
-
-	return nil, ErrDBConnection
+func newBackoff() backoff.BackOff {
+	return backoff.WithMaxRetries(
+		backoff.NewExponentialBackOff(
+			backoff.WithInitialInterval(InitialInterval),
+		),
+		MaxRetries,
+	)
 }
 
-func TryExec(db *sqlx.DB, sql string, args ...any) (sql.Result, error) {
-	timeOut := 1
+func TryQueryRow(db *sqlx.DB, sql string, args ...any) (row *sql.Row, err error) {
+	b := newBackoff()
 
-	for tryCount := 0; tryCount < MaxRetries; tryCount++ {
-		result, err := db.Exec(sql, args...)
-		if err == nil {
-			return result, nil
-		}
+	operation := func() error {
+		row = db.QueryRow(sql, args...)
 
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && !pgerrcode.IsConnectionException(pgErr.Code) {
-			return nil, err
-		}
-
-		time.Sleep(time.Duration(timeOut) * time.Second)
-		timeOut += 2
+		return row.Err()
 	}
 
-	return nil, ErrDBConnection
+	err = backoff.Retry(operation, b)
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgerrcode.IsConnectionException(pgErr.Code) {
+		return nil, ErrDBConnection
+	}
+
+	return row, err
+}
+
+func TryExec(db *sqlx.DB, sql string, args ...any) (result sql.Result, err error) {
+	b := newBackoff()
+
+	operation := func() error {
+		result, err = db.Exec(sql, args...)
+
+		return err
+	}
+
+	err = backoff.Retry(operation, b)
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgerrcode.IsConnectionException(pgErr.Code) {
+		return nil, ErrDBConnection
+	}
+
+	return result, err
 }

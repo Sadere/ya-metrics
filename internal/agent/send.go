@@ -10,35 +10,36 @@ import (
 	"time"
 
 	"github.com/Sadere/ya-metrics/internal/common"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/go-resty/resty/v2"
 )
 
 const (
-	MaxRetries = 3 // Максимальное кол-во попыток для отправки данных
+	InitialInterval = time.Second // Начальный интервал для backoff
+	MaxRetries      = 3           // Максимальное кол-во попыток для отправки данных
 )
 
 // Обертка к функции отправки данных, позволяющая контроллировать сколько попыток будет для успешной отправки
 func (a *MetricAgent) trySendMetrics(metrics []common.Metrics) error {
-	var err error
+	b := backoff.WithMaxRetries(
+		backoff.NewExponentialBackOff(
+			backoff.WithInitialInterval(InitialInterval),
+		),
+		MaxRetries,
+	)
 
-	timeOut := 1
+	operation := func() error {
+		err := a.sendMetrics(metrics)
 
-	for tryCount := 0; tryCount < MaxRetries; tryCount++ {
-		err = a.sendMetrics(metrics)
-
-		if err == nil {
-			break
+		// Если получаем ошибку ErrAgentSendFailed то не можем продолжать попытки
+		if errors.Is(err, ErrAgentSendFailed) {
+			return backoff.Permanent(err)
 		}
 
-		if !errors.Is(err, ErrAgentSendFailed) {
-			return err
-		}
-
-		time.Sleep(time.Duration(timeOut) * time.Second)
-		timeOut += 2
+		return err
 	}
 
-	return err
+	return backoff.Retry(operation, b)
 }
 
 // Функция самой отправки данных метрик на сервер
