@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -18,6 +19,39 @@ const (
 	InitialInterval = time.Second // Начальный интервал для backoff
 	MaxRetries      = 3           // Максимальное кол-во попыток для отправки данных
 )
+
+type gzipRoundTripper struct{}
+
+func (t *gzipRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("[gzip] couldn't read request body: %s", err.Error())
+	}
+
+	// Сжимаем тело запроса
+	buf := bytes.NewBuffer(nil)
+	gz := gzip.NewWriter(buf)
+
+	_, err = gz.Write(body)
+	if err != nil {
+		return nil, fmt.Errorf("[gzip] couldn't write gzip data: %s", err.Error())
+	}
+
+	err = gz.Close()
+	if err != nil {
+		return nil, fmt.Errorf("[gzip] couldn't close gzip writer: %s", err.Error())
+	}
+
+	gzipReq, err := http.NewRequest(r.Method, r.URL.String(), buf)
+	if err != nil {
+		return nil, fmt.Errorf("[gzip] couldn't create gzip request: %s", err.Error())
+	}
+
+	gzipReq.Header.Set("Content-Encoding", "gzip")
+	gzipReq.Header.Set("Accept-Encoding", "gzip")
+
+	return http.DefaultTransport.RoundTrip(gzipReq)
+}
 
 // Обертка к функции отправки данных, позволяющая контроллировать сколько попыток будет для успешной отправки
 func (a *MetricAgent) trySendMetrics(metrics []common.Metrics) error {
@@ -52,6 +86,9 @@ func (a *MetricAgent) sendMetrics(metrics []common.Metrics) error {
 
 	client := resty.New()
 
+	// Используем middleware для сжатия gzip
+	client.SetTransport(&gzipRoundTripper{})
+
 	path := "/updates/"
 
 	body, err := json.Marshal(metrics)
@@ -59,29 +96,13 @@ func (a *MetricAgent) sendMetrics(metrics []common.Metrics) error {
 		return fmt.Errorf("couldn't create json body: %s", err.Error())
 	}
 
-	// Сжимаем тело запроса
-	buf := bytes.NewBuffer(nil)
-	gz := gzip.NewWriter(buf)
-
-	_, err = gz.Write(body)
-	if err != nil {
-		return fmt.Errorf("couldn't write gzip data: %s", err.Error())
-	}
-
-	err = gz.Close()
-	if err != nil {
-		return fmt.Errorf("couldn't close gzip writer: %s", err.Error())
-	}
-
 	result, err := client.R().
 		SetHeader("Content-Type", "application/json").
-		SetHeader("Content-Encoding", "gzip").
-		SetHeader("Accept-Encoding", "gzip").
-		SetBody(buf.Bytes()).
+		SetBody(body).
 		Post(baseURL + path)
 
 	if err != nil {
-		return fmt.Errorf("%w", ErrAgentSendFailed)
+		return err
 	}
 
 	if result.StatusCode() != http.StatusOK {
