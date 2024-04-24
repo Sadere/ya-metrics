@@ -20,6 +20,7 @@ type Config struct {
 	StoreInterval   int               // Интервал в секундах через сколько сервер должен сохранять состояние в файл
 	FileStoragePath string            // Путь к файлу
 	Restore         bool              // Восстанавливать данные из файла
+	PostgresDSN     string            // DSN строка для подключения к бд
 }
 
 func NewConfig() Config {
@@ -32,9 +33,10 @@ func NewConfig() Config {
 
 	flag.StringVar(&newConfig.LogLevel, "v", "fatal", "Уровень лога, возможные значения: debug, info, warn, error, dpanic, panic, fatal")
 	flag.Var(&newConfig.Address, "a", "Адрес сервера")
-	flag.IntVar(&newConfig.StoreInterval, "i", DefaultStoreInterval, "Bнтервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск (значение 0 делает запись синхронной)")
+	flag.IntVar(&newConfig.StoreInterval, "i", DefaultStoreInterval, "Интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск (значение 0 делает запись синхронной)")
 	flag.StringVar(&newConfig.FileStoragePath, "f", DefaultFileStoragePath, "Путь к файлу, хранящему данные метрик")
 	flag.BoolVar(&newConfig.Restore, "r", true, "Флаг, указывающий нужно ли восстанавливать данные из файла")
+	flag.StringVar(&newConfig.PostgresDSN, "d", "", "DSN для postgresql")
 	flag.Parse()
 
 	// Конфиг из переменных окружений
@@ -60,6 +62,10 @@ func NewConfig() Config {
 
 	if envRestore := os.Getenv("RESTORE"); len(envRestore) > 0 {
 		newConfig.Restore = envRestore == "true"
+	}
+
+	if envDSN := os.Getenv("DATABASE_DSN"); len(envDSN) > 0 {
+		newConfig.PostgresDSN = envDSN
 	}
 
 	return newConfig

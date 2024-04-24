@@ -39,7 +39,8 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 		return
 	}
 
-	err = s.repository.Set(name, common.Metrics{
+	err = s.repository.Set(common.Metrics{
+		ID: name,
 		MType: string(common.GaugeMetric),
 		Value: &valueFloat,
 	})
@@ -65,7 +66,7 @@ func (s *Server) updateCounterHandle(c *gin.Context) {
 		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
-	
+
 	_, err = s.addOrSetCounter(name, addValue)
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
@@ -80,6 +81,7 @@ func (s *Server) addOrSetCounter(name string, addValue int64) (common.Metrics, e
 		// Создаем новую метрику если нет такой
 		deltaVar := int64(0)
 		metric = common.Metrics{
+			ID:    name,
 			MType: string(common.CounterMetric),
 			Delta: &deltaVar,
 		}
@@ -87,7 +89,7 @@ func (s *Server) addOrSetCounter(name string, addValue int64) (common.Metrics, e
 
 	*metric.Delta += addValue
 
-	err = s.repository.Set(name, metric)
+	err = s.repository.Set(metric)
 	if err != nil {
 		return metric, err
 	}
@@ -125,7 +127,12 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 		Value string
 	}
 
-	data := s.repository.GetData()
+	data, err := s.repository.GetData()
+	if err != nil {
+		c.String(http.StatusNotFound, err.Error())
+		return
+	}
+
 	metrics := make([]metric, len(data))
 
 	for k, v := range data {
@@ -147,4 +154,14 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"Metrics": metrics,
 	})
+}
+
+func (s *Server) pingHandle(c *gin.Context) {
+	err := s.db.Ping()
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+	} else {
+		c.Status(http.StatusOK)
+	}
 }

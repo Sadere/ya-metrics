@@ -27,6 +27,8 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: praktikum
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
@@ -56,6 +58,15 @@ jobs:
         run: |
           go install golang.org/x/tools/cmd/goimports@latest
 
+      - name: Setup goose
+        run: |
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+
+      - name: Run migrations
+        run: |
+          export GOOSE_DRIVER=postgres
+          export GOOSE_DBSTRING=postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable
+          goose -dir db/migrations up
 
       - name: Build server binary
         run: |

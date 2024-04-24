@@ -15,6 +15,7 @@ import (
 	"github.com/Sadere/ya-metrics/internal/server/middleware"
 	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
 
@@ -23,6 +24,7 @@ type Server struct {
 	repository  storage.MetricRepository
 	fileManager *storage.FileManager
 	log         *zap.Logger
+	db          *sqlx.DB
 }
 
 func (s *Server) setupRouter() *gin.Engine {
@@ -46,6 +48,12 @@ func (s *Server) setupRouter() *gin.Engine {
 	r.GET(`/value/:type/:metric`, s.getMetricHandle)
 	r.POST(`/value/`, middleware.JSON(), s.getMetricHandleJSON)
 
+	// Проверка подключения к бд
+	r.GET(`/ping`, s.pingHandle)
+
+	// Добавление нескольких метрик
+	r.POST(`/updates/`, middleware.JSON(), s.updateBatchHandleJSON)
+
 	// Вывод всех метрик в HTML
 	r.GET(`/`, s.getAllMetricsHandle)
 
@@ -55,7 +63,7 @@ func (s *Server) setupRouter() *gin.Engine {
 func (s *Server) restoreState() {
 	restoredState, err := s.fileManager.ReadMetrics()
 	if err != nil {
-		s.log.Sugar().Errorf("unable to restore state: %s", err.Error())
+		s.log.Sugar().Errorf("unable to read state from file: %s", err.Error())
 	}
 
 	metricsData := make(map[string]common.Metrics)
@@ -64,11 +72,17 @@ func (s *Server) restoreState() {
 		metricsData[m.ID] = m
 	}
 
-	s.repository.SetData(metricsData)
+	err = s.repository.SetData(metricsData)
+	if err != nil {
+		s.log.Sugar().Errorf("unable to restore state: %s", err.Error())
+	}
 }
 
 func (s *Server) saveState() {
-	metrics := s.repository.GetData()
+	metrics, err := s.repository.GetData()
+	if err != nil {
+		s.log.Sugar().Errorf("unable to read state for saving: %s", err.Error())
+	}
 
 	savedState := make([]common.Metrics, 0)
 
@@ -127,8 +141,20 @@ func (s *Server) InitLogging() {
 func Run() {
 	server := &Server{}
 	server.config = config.NewConfig()
-	server.repository = storage.NewMemRepository()
 	server.fileManager = storage.NewFileManager(server.config.FileStoragePath)
+
+	// Выбираем хранилище
+	if len(server.config.PostgresDSN) > 0 {
+		db, err := sqlx.Connect("pgx", server.config.PostgresDSN)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		server.db = db
+		server.repository = storage.NewPgRepository(db)
+	} else {
+		server.repository = storage.NewMemRepository()
+	}
 
 	// Инициализируем логи
 	server.InitLogging()

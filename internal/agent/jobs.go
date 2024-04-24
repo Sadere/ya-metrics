@@ -1,17 +1,11 @@
 package agent
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
-	"net/http"
 	"runtime"
 
 	"github.com/Sadere/ya-metrics/internal/common"
-	"github.com/go-resty/resty/v2"
 )
 
 // "Процесс" сборки метрик
@@ -57,88 +51,47 @@ func (a *MetricAgent) Poll() map[string]float64 {
 
 // "Процесс" отправки метрик на сервер
 func (a *MetricAgent) Report(gaugeMetrics map[string]float64) {
-	for metricName, metricValue := range gaugeMetrics {
+	var metricsToSend []common.Metrics
 
-		err := a.sendMetric("gauge", metricName, metricValue, 0)
-		if err != nil {
-			log.Println(err.Error())
-			return
+	for metricName, metricValue := range gaugeMetrics {
+		m := common.Metrics{
+			ID:    metricName,
+			MType: string(common.GaugeMetric),
+			Value: &metricValue,
 		}
+
+		metricsToSend = append(metricsToSend, m)
+	}
+
+	err := a.trySendMetrics(metricsToSend)
+	if err != nil {
+		log.Println(err.Error())
+		return
 	}
 
 	// Сохраняем кол-во считываний
-	if err := a.sendMetric("counter", "PollCount", 0, int64(a.pollCount)); err != nil {
+	pollCount := int64(a.pollCount)
+	pollCountMetric := common.Metrics{
+		ID:    "PollCount",
+		MType: string(common.CounterMetric),
+		Delta: &pollCount,
+	}
+
+	if err := a.trySendMetrics([]common.Metrics{pollCountMetric}); err != nil {
 		log.Println(err.Error())
 		return
 	}
 
 	// Сохраняем случайное значение
 	randomValue := float64(rand.Intn(10000))
+	randomValueMetric := common.Metrics{
+		ID:    "RandomValue",
+		MType: string(common.GaugeMetric),
+		Value: &randomValue,
+	}
 
-	if err := a.sendMetric("gauge", "RandomValue", randomValue, 0); err != nil {
+	if err := a.trySendMetrics([]common.Metrics{randomValueMetric}); err != nil {
 		log.Println(err.Error())
 		return
 	}
-}
-
-// Функция отправки данных метрик на сервер
-func (a *MetricAgent) sendMetric(metricType string, metricName string, metricValue float64, metricDelta int64) error {
-	baseURL := fmt.Sprintf(
-		"http://%s:%d",
-		a.config.ServerAddress.Host,
-		a.config.ServerAddress.Port,
-	)
-
-	client := resty.New()
-
-	path := "/update/"
-
-	metric := common.Metrics{
-		ID:    metricName,
-		MType: metricType,
-	}
-
-	if metricType == string(common.GaugeMetric) {
-		metric.Value = &metricValue
-	}
-
-	if metricType == string(common.CounterMetric) {
-		metric.Delta = &metricDelta
-	}
-
-	body, err := json.Marshal(metric)
-	if err != nil {
-		return fmt.Errorf("[%s] couldn't create json body: %s", metricName, err.Error())
-	}
-
-	// Сжимаем тело запроса
-	buf := bytes.NewBuffer(nil)
-	gz := gzip.NewWriter(buf)
-
-	_, err = gz.Write(body)
-	if err != nil {
-		return fmt.Errorf("[%s] couldn't write gzip data: %s", metricName, err.Error())
-	}
-
-	err = gz.Close()
-	if err != nil {
-		return fmt.Errorf("[%s] couldn't close gzip writer: %s", metricName, err.Error())
-	}
-
-	result, err := client.R().
-		SetHeader("Content-Type", "application/json").
-		SetHeader("Content-Encoding", "gzip").
-		SetHeader("Accept-Encoding", "gzip").
-		SetBody(buf.Bytes()).
-		Post(baseURL + path)
-
-	if err != nil {
-		return fmt.Errorf("[%s] couldn't make http request: %s", metricName, err.Error())
-	}
-
-	if result.StatusCode() != http.StatusOK {
-		return fmt.Errorf("[%s] failed to save metric, code = %d", metricName, result.StatusCode())
-	}
-
-	return nil
 }
