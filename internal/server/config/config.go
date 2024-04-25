@@ -21,6 +21,7 @@ type Config struct {
 	FileStoragePath string            // Путь к файлу
 	Restore         bool              // Восстанавливать данные из файла
 	PostgresDSN     string            // DSN строка для подключения к бд
+	CryptoKey       string            // Ключ для проверки хеша и хеширования ответов сервера
 }
 
 func NewConfig() Config {
@@ -37,6 +38,7 @@ func NewConfig() Config {
 	flag.StringVar(&newConfig.FileStoragePath, "f", DefaultFileStoragePath, "Путь к файлу, хранящему данные метрик")
 	flag.BoolVar(&newConfig.Restore, "r", true, "Флаг, указывающий нужно ли восстанавливать данные из файла")
 	flag.StringVar(&newConfig.PostgresDSN, "d", "", "DSN для postgresql")
+	flag.StringVar(&newConfig.CryptoKey, "k", "", "Ключ для проверки хеша и хеширования ответов сервера")
 	flag.Parse()
 
 	// Конфиг из переменных окружений
@@ -66,6 +68,10 @@ func NewConfig() Config {
 
 	if envDSN := os.Getenv("DATABASE_DSN"); len(envDSN) > 0 {
 		newConfig.PostgresDSN = envDSN
+	}
+
+	if envKey := os.Getenv("KEY"); len(envKey) > 0 {
+		newConfig.CryptoKey = envKey
 	}
 
 	return newConfig

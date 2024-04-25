@@ -1,15 +1,13 @@
 package agent
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
+	"github.com/Sadere/ya-metrics/internal/agent/middleware"
 	"github.com/Sadere/ya-metrics/internal/common"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-resty/resty/v2"
@@ -19,39 +17,6 @@ const (
 	InitialInterval = time.Second // Начальный интервал для backoff
 	MaxRetries      = 3           // Максимальное кол-во попыток для отправки данных
 )
-
-type gzipRoundTripper struct{}
-
-func (t *gzipRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, fmt.Errorf("[gzip] couldn't read request body: %s", err.Error())
-	}
-
-	// Сжимаем тело запроса
-	buf := bytes.NewBuffer(nil)
-	gz := gzip.NewWriter(buf)
-
-	_, err = gz.Write(body)
-	if err != nil {
-		return nil, fmt.Errorf("[gzip] couldn't write gzip data: %s", err.Error())
-	}
-
-	err = gz.Close()
-	if err != nil {
-		return nil, fmt.Errorf("[gzip] couldn't close gzip writer: %s", err.Error())
-	}
-
-	gzipReq, err := http.NewRequest(r.Method, r.URL.String(), buf)
-	if err != nil {
-		return nil, fmt.Errorf("[gzip] couldn't create gzip request: %s", err.Error())
-	}
-
-	gzipReq.Header.Set("Content-Encoding", "gzip")
-	gzipReq.Header.Set("Accept-Encoding", "gzip")
-
-	return http.DefaultTransport.RoundTrip(gzipReq)
-}
 
 // Обертка к функции отправки данных, позволяющая контроллировать сколько попыток будет для успешной отправки
 func (a *MetricAgent) trySendMetrics(metrics []common.Metrics) error {
@@ -86,8 +51,15 @@ func (a *MetricAgent) sendMetrics(metrics []common.Metrics) error {
 
 	client := resty.New()
 
-	// Используем middleware для сжатия gzip
-	client.SetTransport(&gzipRoundTripper{})
+	// Используем middleware для сжатия gzip и хеширования запроса
+	client.SetTransport(
+		&middleware.HashRoundTripper{
+			Key: []byte(a.config.CryptoKey),
+			Next: &middleware.GzipRoundTripper{
+				Next: http.DefaultTransport,
+			},
+		},
+	)
 
 	path := "/updates/"
 

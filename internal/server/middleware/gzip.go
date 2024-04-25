@@ -73,6 +73,7 @@ func GzipDecompress() gin.HandlerFunc {
 		gz, err := gzip.NewReader(c.Request.Body)
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
+			c.Abort()
 			return
 		}
 

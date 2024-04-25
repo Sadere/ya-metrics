@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultPollInterval = 2
+	DefaultPollInterval   = 2
 	DefaultReportInterval = 10
 )
 
@@ -19,6 +19,7 @@ type Config struct {
 
 	PollInterval,
 	ReportInterval int
+	CryptoKey string
 }
 
 func NewConfig() Config {
@@ -28,12 +29,13 @@ func NewConfig() Config {
 			Port: 8080,
 		},
 	}
-	
+
 	// Парсим аргументы командной строки
 
 	flag.IntVar(&newConfig.PollInterval, "p", DefaultPollInterval, "Частота сбора метрик")
 	flag.IntVar(&newConfig.ReportInterval, "r", DefaultReportInterval, "Частота опроса сервера в секундах")
 	flag.Var(&newConfig.ServerAddress, "a", "Адрес сервера")
+	flag.StringVar(&newConfig.CryptoKey, "k", "", "Ключ для хеширования передаваемых данных")
 	flag.Parse()
 
 	// Берем опции из переменных окружения
@@ -59,6 +61,10 @@ func NewConfig() Config {
 			number = DefaultReportInterval
 		}
 		newConfig.ReportInterval = number
+	}
+
+	if envKey := os.Getenv("KEY"); len(envKey) > 0 {
+		newConfig.CryptoKey = envKey
 	}
 
 	return newConfig
