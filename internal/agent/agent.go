@@ -1,33 +1,77 @@
 package agent
 
 import (
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Sadere/ya-metrics/internal/agent/config"
+	"github.com/Sadere/ya-metrics/internal/common"
 )
 
 type MetricAgent struct {
 	config    config.Config
-	pollCount int
+	pollCount int64
+	workChan  chan []common.Metrics
+	doneChan  chan struct{}
+}
+
+func (a *MetricAgent) worker(id int) {
+	for {
+		select {
+		case <-a.doneChan:
+			log.Printf("worker #%d shutdown...\n", id+1)
+			return
+		case metrics := <-a.workChan:
+
+			// Задержка перед отправкой метрик на сервер
+			time.Sleep(time.Duration(a.config.ReportInterval) * time.Second)
+
+			err := a.trySendMetrics(metrics)
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
+	}
 }
 
 func Run() {
 	agent := MetricAgent{
 		config:    config.NewConfig(),
 		pollCount: 0,
+		workChan:  make(chan []common.Metrics),
 	}
 
-	// Основной цикл работы
-	for {
-		// Задержка перед сбором метрик
-		time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
+	agent.doneChan = make(chan struct{}, agent.config.RateLimit)
 
-		// Считываем метрики
-		gaugeMetrics := agent.Poll()
-
-		// Задержка перед отправкой метрик на сервер
-		time.Sleep(time.Duration(agent.config.ReportInterval) * time.Second)
-
-		agent.Report(gaugeMetrics)
+	for i := 0; i < agent.config.RateLimit; i++ {
+		go agent.worker(i)
 	}
+
+	go func() {
+		for {
+			// Задержка перед сбором метрик
+			time.Sleep(time.Duration(agent.config.PollInterval) * time.Second)
+
+			// Считываем метрики
+			agent.PollRuntime()
+			agent.PollPS()
+		}
+	}()
+
+	// Ловим сигналы отключения агента
+	quit := make(chan os.Signal, 1)
+
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	// Закрываем всех воркеров
+	for i := 0; i < agent.config.RateLimit; i++ {
+		agent.doneChan <- struct{}{}
+	}
+
+	// Ждем пока воркеры завершатся
+	time.Sleep(time.Second)
 }

@@ -12,6 +12,7 @@ import (
 const (
 	DefaultPollInterval   = 2
 	DefaultReportInterval = 10
+	DefaultRateLimit = 5
 )
 
 type Config struct {
@@ -20,6 +21,7 @@ type Config struct {
 	PollInterval,
 	ReportInterval int
 	CryptoKey string
+	RateLimit int
 }
 
 func NewConfig() Config {
@@ -36,6 +38,7 @@ func NewConfig() Config {
 	flag.IntVar(&newConfig.ReportInterval, "r", DefaultReportInterval, "Частота опроса сервера в секундах")
 	flag.Var(&newConfig.ServerAddress, "a", "Адрес сервера")
 	flag.StringVar(&newConfig.CryptoKey, "k", "", "Ключ для хеширования передаваемых данных")
+	flag.IntVar(&newConfig.RateLimit, "l", DefaultRateLimit, "Лимит одновременных отправок на сервер")
 	flag.Parse()
 
 	// Берем опции из переменных окружения
@@ -65,6 +68,14 @@ func NewConfig() Config {
 
 	if envKey := os.Getenv("KEY"); len(envKey) > 0 {
 		newConfig.CryptoKey = envKey
+	}
+
+	if envRateLimit := os.Getenv("RATE_LIMIT"); len(envRateLimit) > 0 {
+		number, err := strconv.Atoi(envRateLimit)
+		if err != nil {
+			number = DefaultRateLimit
+		}
+		newConfig.RateLimit = number
 	}
 
 	return newConfig
