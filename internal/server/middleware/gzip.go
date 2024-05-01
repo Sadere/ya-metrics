@@ -15,10 +15,6 @@ type gzipWriter struct {
 	writer *gzip.Writer
 }
 
-func (g *gzipWriter) WriteString(s string) (int, error) {
-	return g.writer.Write([]byte(s))
-}
-
 func (g *gzipWriter) Write(data []byte) (int, error) {
 	return g.writer.Write(data)
 }
@@ -34,7 +30,7 @@ func GzipCompress() gin.HandlerFunc {
 		suitableContent := slices.Contains(compressableContent, c.Request.Header.Get("Content-Type"))
 
 		// Проверяем можно ли проводить сжатие
-		if !acceptGzip && !suitableContent {
+		if !acceptGzip || !suitableContent {
 			c.Next()
 			return
 		}
