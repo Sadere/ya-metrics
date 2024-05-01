@@ -24,13 +24,13 @@ func TestHandlers_updateJSON(t *testing.T) {
 	}
 	tests := []struct {
 		name        string
-		requestUri  string
+		requestURI  string
 		requestBody []byte
 		want        want
 	}{
 		{
 			name:        "invalid json input",
-			requestUri:  "/update/",
+			requestURI:  "/update/",
 			requestBody: []byte(`not json`),
 			want: want{
 				contentType: "application/json",
@@ -39,7 +39,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "save gauge",
-			requestUri:  "/update/",
+			requestURI:  "/update/",
 			requestBody: []byte(`{"id":"gaugeMetric","type":"gauge","value":100.66}`),
 			want: want{
 				contentType: "application/json",
@@ -48,7 +48,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "save counter",
-			requestUri:  "/update/",
+			requestURI:  "/update/",
 			requestBody: []byte(`{"id":"counterMetric","type":"counter","delta":200}`),
 			want: want{
 				contentType: "application/json",
@@ -57,7 +57,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "save invalid type",
-			requestUri:  "/update/",
+			requestURI:  "/update/",
 			requestBody: []byte(`{"id":"invalidMetric","type":"invalid","delta":200}`),
 			want: want{
 				contentType: "application/json",
@@ -66,7 +66,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "get gauge",
-			requestUri:  "/value/",
+			requestURI:  "/value/",
 			requestBody: []byte(`{"id":"gaugeMetric","type":"gauge"}`),
 			want: want{
 				contentType: "application/json",
@@ -76,7 +76,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "get counter",
-			requestUri:  "/value/",
+			requestURI:  "/value/",
 			requestBody: []byte(`{"id":"counterMetric","type":"counter"}`),
 			want: want{
 				contentType: "application/json",
@@ -86,7 +86,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "get invalid",
-			requestUri:  "/value/",
+			requestURI:  "/value/",
 			requestBody: []byte(`{"id":"invalidMetric","type":"invalid"}`),
 			want: want{
 				contentType: "application/json",
@@ -95,7 +95,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "value invalid json",
-			requestUri:  "/value/",
+			requestURI:  "/value/",
 			requestBody: []byte(`not json`),
 			want: want{
 				contentType: "application/json",
@@ -104,7 +104,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "batch save gauge",
-			requestUri:  "/updates/",
+			requestURI:  "/updates/",
 			requestBody: []byte(`[{"id":"gaugeMetric","type":"gauge","value":100.66}]`),
 			want: want{
 				contentType: "application/json",
@@ -113,7 +113,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "batch save counter",
-			requestUri:  "/updates/",
+			requestURI:  "/updates/",
 			requestBody: []byte(`[{"id":"counterMetric","type":"counter","delta":200}]`),
 			want: want{
 				contentType: "application/json",
@@ -122,7 +122,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "batch save invalid type",
-			requestUri:  "/updates/",
+			requestURI:  "/updates/",
 			requestBody: []byte(`[{"id":"invalidMetric","type":"invalid"}]`),
 			want: want{
 				contentType: "application/json",
@@ -131,7 +131,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 		},
 		{
 			name:        "batch invalid json",
-			requestUri:  "/updates/",
+			requestURI:  "/updates/",
 			requestBody: []byte(`not json`),
 			want: want{
 				contentType: "application/json",
@@ -141,7 +141,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, tt.requestUri, bytes.NewReader(tt.requestBody))
+			request := httptest.NewRequest(http.MethodPost, tt.requestURI, bytes.NewReader(tt.requestBody))
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, request)
@@ -176,13 +176,13 @@ func TestHandlerJSON_errorStorage(t *testing.T) {
 	}
 	tests := []struct {
 		name        string
-		requestUri  string
+		requestURI  string
 		requestBody []byte
 		want        want
 	}{
 		{
 			name:        "error update handler",
-			requestUri:  "/update/",
+			requestURI:  "/update/",
 			requestBody: []byte(`{"id":"gaugeMetric","type":"gauge","value":100.66}`),
 			want: want{
 				contentType: "application/json",
@@ -191,7 +191,7 @@ func TestHandlerJSON_errorStorage(t *testing.T) {
 		},
 		{
 			name:        "error get handler",
-			requestUri:  "/value/",
+			requestURI:  "/value/",
 			requestBody: []byte(`{"id":"gaugeMetric","type":"gauge"}`),
 			want: want{
 				contentType: "application/json",
@@ -200,7 +200,7 @@ func TestHandlerJSON_errorStorage(t *testing.T) {
 		},
 		{
 			name:        "error batch update handler",
-			requestUri:  "/updates/",
+			requestURI:  "/updates/",
 			requestBody: []byte(`[{"id":"gaugeMetric","type":"gauge"}]`),
 			want: want{
 				contentType: "application/json",
@@ -210,7 +210,7 @@ func TestHandlerJSON_errorStorage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, tt.requestUri, bytes.NewReader(tt.requestBody))
+			request := httptest.NewRequest(http.MethodPost, tt.requestURI, bytes.NewReader(tt.requestBody))
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, request)
