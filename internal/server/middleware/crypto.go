@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/Sadere/ya-metrics/internal/common"
@@ -14,12 +15,36 @@ import (
 
 type bodyHashWriter struct {
 	gin.ResponseWriter
-	body *bytes.Buffer
+
+	statusCode int
+	h          http.Header
+	body       *bytes.Buffer
 }
 
-func (w bodyHashWriter) Write(b []byte) (int, error) {
-	w.body.Write(b)
-	return w.ResponseWriter.Write(b)
+func (w *bodyHashWriter) Write(b []byte) (int, error) {
+	return w.body.Write(b)
+}
+
+func (w *bodyHashWriter) Header() http.Header {
+	return w.h
+}
+
+func (w *bodyHashWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+}
+
+func (w *bodyHashWriter) Done() {
+	originalHeader := w.ResponseWriter.Header()
+	for key, value := range w.Header() {
+		originalHeader[key] = value
+	}
+
+	w.ResponseWriter.WriteHeader(w.statusCode)
+
+	_, err := w.ResponseWriter.Write(w.body.Bytes())
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }
 
 // Сверяем хеш запроса
@@ -73,9 +98,14 @@ func HashResponse(key string) gin.HandlerFunc {
 		}
 
 		// Подменяем writer
-		hashWriter := bodyHashWriter{c.Writer, bytes.NewBufferString("")}
+		hashWriter := &bodyHashWriter{
+			ResponseWriter: c.Writer,
+			body:           bytes.NewBufferString(""),
+			h:              make(http.Header),
+		}
+		c.Writer = hashWriter
 
-		c.Writer = &hashWriter
+		defer hashWriter.Done()
 
 		// Делаем что-то
 		c.Next()
