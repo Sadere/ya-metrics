@@ -40,6 +40,7 @@ func TestAgent_pollMetrics(t *testing.T) {
 			}()
 
 			tt.a.PollRuntime()
+			tt.a.PollPS()
 
 			time.Sleep(time.Second * 2)
 
