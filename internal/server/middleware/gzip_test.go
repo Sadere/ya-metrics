@@ -20,7 +20,7 @@ func TestGzip(t *testing.T) {
 	r.Use(gin.Recovery())
 
 	r.GET("/example", func(c *gin.Context) {
-		c.String(http.StatusOK, "example response")
+		c.Data(http.StatusOK, "text/html", []byte("example response"))
 	})
 
 	type want struct {
@@ -37,7 +37,6 @@ func TestGzip(t *testing.T) {
 			name: "accept encoding",
 			headers: map[string]string{
 				"Accept-Encoding": "gzip",
-				"Content-Type":    "text/html",
 			},
 			want: want{
 				contentEncoding: "gzip",
