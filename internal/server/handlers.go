@@ -28,11 +28,6 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 	name := c.Param("metric")
 	value := c.Param("value")
 
-	if name == "" || value == "" {
-		c.String(http.StatusNotFound, "Insufficient parameters")
-		return
-	}
-
 	valueFloat, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
@@ -40,7 +35,7 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 	}
 
 	err = s.repository.Set(common.Metrics{
-		ID: name,
+		ID:    name,
 		MType: string(common.GaugeMetric),
 		Value: &valueFloat,
 	})
@@ -55,11 +50,6 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 func (s *Server) updateCounterHandle(c *gin.Context) {
 	name := c.Param("metric")
 	value := c.Param("value")
-
-	if name == "" || value == "" {
-		c.String(http.StatusNotFound, "Insufficient parameters")
-		return
-	}
 
 	addValue, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
@@ -119,6 +109,8 @@ func (s *Server) getMetricHandle(c *gin.Context) {
 	default:
 		c.String(http.StatusNotFound, "unknown metric type")
 	}
+	
+	c.Header("Content-Type", "text/plain; charset=utf-8")
 }
 
 func (s *Server) getAllMetricsHandle(c *gin.Context) {

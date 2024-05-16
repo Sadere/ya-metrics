@@ -1,59 +1,59 @@
 package agent
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"runtime"
+	"sync/atomic"
 
 	"github.com/Sadere/ya-metrics/internal/common"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
-// "Процесс" сборки метрик
-func (a *MetricAgent) Poll() map[string]float64 {
+// Собираем метрики из пакета runtime
+func (a *MetricAgent) PollRuntime() {
 	var rtm runtime.MemStats
 
 	runtime.ReadMemStats(&rtm)
-	result := make(map[string]float64)
+	rtmMetrics := make(map[string]float64)
 
-	result["Alloc"] = float64(rtm.Alloc)
-	result["BuckHashSys"] = float64(rtm.BuckHashSys)
-	result["Frees"] = float64(rtm.Frees)
-	result["GCCPUFraction"] = float64(rtm.GCCPUFraction)
-	result["GCSys"] = float64(rtm.GCSys)
-	result["HeapAlloc"] = float64(rtm.HeapAlloc)
-	result["HeapIdle"] = float64(rtm.HeapIdle)
-	result["HeapInuse"] = float64(rtm.HeapInuse)
-	result["HeapObjects"] = float64(rtm.HeapObjects)
-	result["HeapReleased"] = float64(rtm.HeapReleased)
-	result["HeapSys"] = float64(rtm.HeapSys)
-	result["LastGC"] = float64(rtm.LastGC)
-	result["Lookups"] = float64(rtm.Lookups)
-	result["MCacheInuse"] = float64(rtm.MCacheInuse)
-	result["MCacheSys"] = float64(rtm.MCacheSys)
-	result["MSpanInuse"] = float64(rtm.MSpanInuse)
-	result["MSpanSys"] = float64(rtm.MSpanSys)
-	result["Mallocs"] = float64(rtm.Mallocs)
-	result["NextGC"] = float64(rtm.NextGC)
-	result["NumForcedGC"] = float64(rtm.NumForcedGC)
-	result["NumGC"] = float64(rtm.NumGC)
-	result["OtherSys"] = float64(rtm.OtherSys)
-	result["PauseTotalNs"] = float64(rtm.PauseTotalNs)
-	result["StackInuse"] = float64(rtm.StackInuse)
-	result["StackSys"] = float64(rtm.StackSys)
-	result["Sys"] = float64(rtm.Sys)
-	result["TotalAlloc"] = float64(rtm.TotalAlloc)
+	rtmMetrics["Alloc"] = float64(rtm.Alloc)
+	rtmMetrics["BuckHashSys"] = float64(rtm.BuckHashSys)
+	rtmMetrics["Frees"] = float64(rtm.Frees)
+	rtmMetrics["GCCPUFraction"] = float64(rtm.GCCPUFraction)
+	rtmMetrics["GCSys"] = float64(rtm.GCSys)
+	rtmMetrics["HeapAlloc"] = float64(rtm.HeapAlloc)
+	rtmMetrics["HeapIdle"] = float64(rtm.HeapIdle)
+	rtmMetrics["HeapInuse"] = float64(rtm.HeapInuse)
+	rtmMetrics["HeapObjects"] = float64(rtm.HeapObjects)
+	rtmMetrics["HeapReleased"] = float64(rtm.HeapReleased)
+	rtmMetrics["HeapSys"] = float64(rtm.HeapSys)
+	rtmMetrics["LastGC"] = float64(rtm.LastGC)
+	rtmMetrics["Lookups"] = float64(rtm.Lookups)
+	rtmMetrics["MCacheInuse"] = float64(rtm.MCacheInuse)
+	rtmMetrics["MCacheSys"] = float64(rtm.MCacheSys)
+	rtmMetrics["MSpanInuse"] = float64(rtm.MSpanInuse)
+	rtmMetrics["MSpanSys"] = float64(rtm.MSpanSys)
+	rtmMetrics["Mallocs"] = float64(rtm.Mallocs)
+	rtmMetrics["NextGC"] = float64(rtm.NextGC)
+	rtmMetrics["NumForcedGC"] = float64(rtm.NumForcedGC)
+	rtmMetrics["NumGC"] = float64(rtm.NumGC)
+	rtmMetrics["OtherSys"] = float64(rtm.OtherSys)
+	rtmMetrics["PauseTotalNs"] = float64(rtm.PauseTotalNs)
+	rtmMetrics["StackInuse"] = float64(rtm.StackInuse)
+	rtmMetrics["StackSys"] = float64(rtm.StackSys)
+	rtmMetrics["Sys"] = float64(rtm.Sys)
+	rtmMetrics["TotalAlloc"] = float64(rtm.TotalAlloc)
 
 	// Увеличиваем счетчик
-	a.pollCount += 1
+	atomic.AddInt64(&a.pollCount, 1)
 
-	return result
-}
-
-// "Процесс" отправки метрик на сервер
-func (a *MetricAgent) Report(gaugeMetrics map[string]float64) {
+	// runtime метрики
 	var metricsToSend []common.Metrics
 
-	for metricName, metricValue := range gaugeMetrics {
+	for metricName, metricValue := range rtmMetrics {
 		m := common.Metrics{
 			ID:    metricName,
 			MType: string(common.GaugeMetric),
@@ -63,24 +63,17 @@ func (a *MetricAgent) Report(gaugeMetrics map[string]float64) {
 		metricsToSend = append(metricsToSend, m)
 	}
 
-	err := a.trySendMetrics(metricsToSend)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
+	a.workChan <- metricsToSend
 
 	// Сохраняем кол-во считываний
-	pollCount := int64(a.pollCount)
+	pollCount := a.pollCount
 	pollCountMetric := common.Metrics{
 		ID:    "PollCount",
 		MType: string(common.CounterMetric),
 		Delta: &pollCount,
 	}
 
-	if err := a.trySendMetrics([]common.Metrics{pollCountMetric}); err != nil {
-		log.Println(err.Error())
-		return
-	}
+	a.workChan <- []common.Metrics{pollCountMetric}
 
 	// Сохраняем случайное значение
 	randomValue := float64(rand.Intn(10000))
@@ -90,8 +83,52 @@ func (a *MetricAgent) Report(gaugeMetrics map[string]float64) {
 		Value: &randomValue,
 	}
 
-	if err := a.trySendMetrics([]common.Metrics{randomValueMetric}); err != nil {
-		log.Println(err.Error())
-		return
+	a.workChan <- []common.Metrics{randomValueMetric}
+}
+
+// Сбор метрик из пакета gopsutil
+func (a *MetricAgent) PollPS() {
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		log.Fatal(err.Error())
 	}
+
+	// Сохраняем всю доступную память
+	totalMemory := float64(v.Total)
+	totalMemoryMetric := common.Metrics{
+		ID:    "TotalMemory",
+		MType: string(common.GaugeMetric),
+		Value: &totalMemory,
+	}
+
+	a.workChan <- []common.Metrics{totalMemoryMetric}
+
+	// Сохраняем свободную память
+	freeMemory := float64(v.Free)
+	freeMemoryMetric := common.Metrics{
+		ID:    "FreeMemory",
+		MType: string(common.GaugeMetric),
+		Value: &freeMemory,
+	}
+
+	a.workChan <- []common.Metrics{freeMemoryMetric}
+
+	// Сохраняем статистику по процессору
+	var cpuMetrics []common.Metrics
+
+	cpuStats, err := cpu.Percent(0, true)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	for cpuNum, cpuPercent := range cpuStats {
+		m := common.Metrics{
+			ID:    fmt.Sprintf("CPUutilization%d", cpuNum+1),
+			MType: string(common.GaugeMetric),
+			Value: &cpuPercent,
+		}
+		cpuMetrics = append(cpuMetrics, m)
+	}
+
+	a.workChan <- cpuMetrics
 }

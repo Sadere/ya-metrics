@@ -36,8 +36,16 @@ func (s *Server) setupRouter() *gin.Engine {
 	// Стандартный обработчик паники
 	r.Use(gin.Recovery())
 
-	// Используем сжатие
+	// Распаковываем запрос
 	r.Use(middleware.GzipDecompress())
+
+	// Проверка хеша
+	r.Use(middleware.ValidateHash(s.config.CryptoKey))
+
+	// Хеш ответа
+	r.Use(middleware.HashResponse(s.config.CryptoKey))
+
+	// Упаковываем ответ
 	r.Use(middleware.GzipCompress())
 
 	// Обработка обновления метрик

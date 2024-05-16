@@ -2,9 +2,7 @@ package middleware
 
 import (
 	"compress/gzip"
-	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -15,26 +13,37 @@ type gzipWriter struct {
 	writer *gzip.Writer
 }
 
-func (g *gzipWriter) WriteString(s string) (int, error) {
-	return g.writer.Write([]byte(s))
-}
-
 func (g *gzipWriter) Write(data []byte) (int, error) {
+	compressableContent := []string{
+		"text/html",
+		"application/json",
+	}
+
+	suitableContent := false
+	contentType := g.ResponseWriter.Header().Get("Content-Type")
+
+	for _, v := range compressableContent {
+		if strings.Contains(contentType, v) {
+			suitableContent = true
+			break
+		}
+	}
+
+	if !suitableContent {
+		return g.ResponseWriter.Write(data)
+	}
+
+	g.ResponseWriter.Header().Set("Content-Encoding", "gzip")
+
 	return g.writer.Write(data)
 }
 
 func GzipCompress() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		compressableContent := []string{
-			"text/html",
-			"application/json",
-		}
-
 		acceptGzip := strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip")
-		suitableContent := slices.Contains(compressableContent, c.Request.Header.Get("Content-Type"))
 
 		// Проверяем можно ли проводить сжатие
-		if !acceptGzip && !suitableContent {
+		if !acceptGzip {
 			c.Next()
 			return
 		}
@@ -48,13 +57,12 @@ func GzipCompress() gin.HandlerFunc {
 
 		defer func() {
 			gz.Close()
-			c.Header("Content-Length", fmt.Sprint(c.Writer.Size()))
+			//c.Header("Content-Length", fmt.Sprint(c.Writer.Size()))
 		}()
 
 		// Переопределяем стандартный writer от gin нашим, который упакует данные в Gzip
 		c.Writer = &gzipWriter{c.Writer, gz}
 
-		c.Header("Content-Encoding", "gzip")
 		c.Next()
 	}
 }
@@ -73,6 +81,7 @@ func GzipDecompress() gin.HandlerFunc {
 		gz, err := gzip.NewReader(c.Request.Body)
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
+			c.Abort()
 			return
 		}
 
