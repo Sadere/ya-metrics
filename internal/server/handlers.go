@@ -98,18 +98,24 @@ func (s *Server) getMetricHandle(c *gin.Context) {
 			c.String(http.StatusNotFound, err.Error())
 			return
 		}
-		c.String(http.StatusOK, fmt.Sprintf("%v", *metric.Delta))
+
+		resultDelta := strconv.FormatInt(*metric.Delta, 10)
+
+		c.String(http.StatusOK, resultDelta)
 	case string(common.GaugeMetric):
 		metric, err := s.repository.Get(common.GaugeMetric, metricName)
 		if err != nil {
 			c.String(http.StatusNotFound, err.Error())
 			return
 		}
-		c.String(http.StatusOK, fmt.Sprintf("%v", *metric.Value))
+
+		resultValue := strconv.FormatFloat(*metric.Value, 'f', 2, 64)
+
+		c.String(http.StatusOK, resultValue)
 	default:
 		c.String(http.StatusNotFound, "unknown metric type")
 	}
-	
+
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 }
 

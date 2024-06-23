@@ -192,7 +192,7 @@ func TestHandlerJSON_errorStorage(t *testing.T) {
 		{
 			name:        "error get handler",
 			requestURI:  "/value/",
-			requestBody: []byte(`{"id":"gaugeMetric","type":"gauge"}`),
+			requestBody: []byte(`{"id":"error_metric","type":"gauge"}`),
 			want: want{
 				contentType: "application/json",
 				statusCode:  http.StatusNotFound,
