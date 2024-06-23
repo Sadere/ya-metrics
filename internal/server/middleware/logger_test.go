@@ -3,13 +3,14 @@ package middleware
 import (
 	"bufio"
 	"bytes"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 func PerformRequest(r http.Handler, method, path string) *httptest.ResponseRecorder {

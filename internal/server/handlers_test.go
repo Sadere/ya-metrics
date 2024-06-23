@@ -57,7 +57,7 @@ func TestHandlers_text(t *testing.T) {
 	type want struct {
 		contentType string
 		statusCode  int
-		body string
+		body        string
 	}
 	tests := []struct {
 		name    string
@@ -126,7 +126,7 @@ func TestHandlers_text(t *testing.T) {
 			want: want{
 				contentType: "text/plain",
 				statusCode:  http.StatusOK,
-				body: "100.35",
+				body:        "100.35",
 			},
 		},
 		{
@@ -136,7 +136,7 @@ func TestHandlers_text(t *testing.T) {
 			want: want{
 				contentType: "text/plain",
 				statusCode:  http.StatusOK,
-				body: "400",
+				body:        "400",
 			},
 		},
 		{
@@ -191,7 +191,6 @@ func TestHandlers_text(t *testing.T) {
 	}
 }
 
-
 func TestHandler_errorStorage(t *testing.T) {
 	server := Server{repository: &TestStorage{}}
 	server.InitLogging()
@@ -243,7 +242,6 @@ func TestHandler_errorStorage(t *testing.T) {
 		})
 	}
 }
-
 
 func BenchmarkGetMetricHandle(b *testing.B) {
 	server := Server{repository: &TestStorage{}}

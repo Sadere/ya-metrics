@@ -71,7 +71,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 			want: want{
 				contentType: "application/json",
 				statusCode:  http.StatusOK,
-				body: `{"id":"gaugeMetric","type":"gauge","value":100.66}`,
+				body:        `{"id":"gaugeMetric","type":"gauge","value":100.66}`,
 			},
 		},
 		{
@@ -81,7 +81,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 			want: want{
 				contentType: "application/json",
 				statusCode:  http.StatusOK,
-				body: `{"id":"counterMetric","type":"counter","delta":200}`,
+				body:        `{"id":"counterMetric","type":"counter","delta":200}`,
 			},
 		},
 		{

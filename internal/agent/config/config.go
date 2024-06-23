@@ -12,7 +12,7 @@ import (
 const (
 	DefaultPollInterval   = 2
 	DefaultReportInterval = 10
-	DefaultRateLimit = 5
+	DefaultRateLimit      = 5
 )
 
 type Config struct {
