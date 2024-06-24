@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Sadere/ya-metrics/internal/common"
 	"github.com/gin-gonic/gin"
@@ -109,7 +110,8 @@ func (s *Server) getMetricHandle(c *gin.Context) {
 			return
 		}
 
-		resultValue := strconv.FormatFloat(*metric.Value, 'f', 2, 64)
+		resultValue := strconv.FormatFloat(*metric.Value, 'f', 6, 64)
+		resultValue = strings.TrimRight(resultValue, "0")
 
 		c.String(http.StatusOK, resultValue)
 	default:
