@@ -25,15 +25,16 @@ func Example() {
 	postBody, _ := json.Marshal(m)
 
 	// Пример отправки метрики
-	_, err := http.Post("http://example.com:8080/update/", "application/json", bytes.NewBuffer(postBody))
+	resp, err := http.Post("http://example.com:8080/update/", "application/json", bytes.NewBuffer(postBody))
 	if err != nil {
 		panic(err)
 	}
+	resp.Body.Close()
 
 	// Пример получения значения метрики
 	var resultMetric metric
 
-	resp, err := http.Post("http://example.com:8080/value/", "application/json", bytes.NewBuffer(postBody))
+	resp, err = http.Post("http://example.com:8080/value/", "application/json", bytes.NewBuffer(postBody))
 	if err != nil {
 		panic(err)
 	}
@@ -66,9 +67,10 @@ func Example() {
 
 	postBody, _ = json.Marshal(metrics)
 
-	_, err = http.Post("http://example.com:8080/updates/", "application/json", bytes.NewBuffer(postBody))
+	resp, err = http.Post("http://example.com:8080/updates/", "application/json", bytes.NewBuffer(postBody))
 	if err != nil {
 		panic(err)
 	}
+	resp.Body.Close()
 
 }
