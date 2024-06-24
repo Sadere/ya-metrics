@@ -11,13 +11,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// Дефолтные параметры для backoff стратегии
 const (
 	InitialInterval = time.Second
 	MaxRetries      = 3
 )
 
+// Ошибки БД
 var (
-	ErrDBConnection = errors.New("couldn't establish db connection")
+	ErrDBConnection = errors.New("couldn't establish db connection") // Ошибка соединения к БД
 )
 
 func newBackoff() backoff.BackOff {
@@ -29,6 +31,7 @@ func newBackoff() backoff.BackOff {
 	)
 }
 
+// Обертка над QueryRow использующая backoff стратегию
 func TryQueryRow(db *sqlx.DB, sql string, args ...any) (row *sql.Row, err error) {
 	b := newBackoff()
 
@@ -48,6 +51,7 @@ func TryQueryRow(db *sqlx.DB, sql string, args ...any) (row *sql.Row, err error)
 	return row, err
 }
 
+// Обертка над Exec использующая backoff стратегию
 func TryExec(db *sqlx.DB, sql string, args ...any) (result sql.Result, err error) {
 	b := newBackoff()
 

@@ -19,12 +19,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// Основная структура сервера
 type Server struct {
-	config      config.Config
-	repository  storage.MetricRepository
-	fileManager *storage.FileManager
-	log         *zap.Logger
-	db          *sqlx.DB
+	config      config.Config            // Конфиг сервера
+	repository  storage.MetricRepository // Репозиторий метрики
+	fileManager *storage.FileManager     // Менеджер файла хранящий метрики
+	log         *zap.Logger              // Лог
+	db          *sqlx.DB                 // Указатель на соединение с БД
 }
 
 func (s *Server) setupRouter() *gin.Engine {
@@ -103,6 +104,7 @@ func (s *Server) saveState() {
 	}
 }
 
+// Запуск http-сервера
 func (s *Server) StartServer() {
 	// Инициализируем роутер
 	r := s.setupRouter()
@@ -137,6 +139,7 @@ func (s *Server) StartServer() {
 	}
 }
 
+// Инициализация логов
 func (s *Server) InitLogging() {
 	zapLogger, err := logger.NewZapLogger(s.config.LogLevel)
 	if err != nil {
@@ -146,6 +149,7 @@ func (s *Server) InitLogging() {
 	s.log = zapLogger
 }
 
+// Точка входа в сервер, настройка и запуск сервера
 func Run() {
 	server := &Server{}
 	server.config = config.NewConfig()

@@ -1,3 +1,5 @@
+// Пакет config считывает настройки агента из коммандной строки и переменных окружения, создает
+// структуру Config со всеми настройками
 package config
 
 import (
@@ -9,21 +11,24 @@ import (
 	"github.com/Sadere/ya-metrics/internal/common"
 )
 
+// Параметры по умолчанию
 const (
-	DefaultPollInterval   = 2
-	DefaultReportInterval = 10
-	DefaultRateLimit = 5
+	DefaultPollInterval   = 2  // Интервал запроса метрик по умолчанию
+	DefaultReportInterval = 10 // Интервал отправки метрики по умолчанию
+	DefaultRateLimit      = 5  // Ограничение отправки по умолчанию
 )
 
+// Хранит настройки агента
 type Config struct {
-	ServerAddress common.NetAddress
+	ServerAddress common.NetAddress // Адрес сервера для отправки метрик
 
-	PollInterval,
-	ReportInterval int
-	CryptoKey string
-	RateLimit int
+	PollInterval, // Интервал запроса метрик системы в секундах
+	ReportInterval int // Интервал отправки метрик на сервер в секундах
+	CryptoKey string // Ключ для хеширования тела запроса
+	RateLimit int    // Кол-во одновременных отправок на сервер (кол-во воркеров)
 }
 
+// Возвращает структура конфига с установленными настройками
 func NewConfig() Config {
 	newConfig := Config{
 		ServerAddress: common.NetAddress{

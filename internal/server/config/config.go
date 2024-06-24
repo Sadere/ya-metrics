@@ -1,3 +1,4 @@
+// Пакет config считывает настройки для сервера
 package config
 
 import (
@@ -10,10 +11,11 @@ import (
 )
 
 const (
-	DefaultStoreInterval   = 300 // Значение по умолчанию для интервала записи
-	DefaultFileStoragePath = "metrics-db.json"
+	DefaultStoreInterval   = 300               // Значение по умолчанию для интервала записи
+	DefaultFileStoragePath = "metrics-db.json" // Файл для хранения данных метрик по умолчанию
 )
 
+// Хранит настройки сервера
 type Config struct {
 	Address         common.NetAddress // Адрес сервера
 	LogLevel        string            // Уровень логирования

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Логирует все запросы к серверу
 func Logger(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		t := time.Now()

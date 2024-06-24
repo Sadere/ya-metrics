@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Обертка над gin.ResponseWriter позволяющая проставить заголовок содержащий хеш тела
 type bodyHashWriter struct {
 	gin.ResponseWriter
 

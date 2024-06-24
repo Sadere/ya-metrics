@@ -14,8 +14,28 @@ import (
 
 type TestStorage struct{}
 
-func (ts *TestStorage) Get(common.MetricType, string) (common.Metrics, error) {
-	return common.Metrics{}, errors.New("Get() error")
+func (ts *TestStorage) Get(mType common.MetricType, name string) (common.Metrics, error) {
+	delta := int64(111)
+	value := float64(222.444)
+
+	metric := common.Metrics{
+		ID: name,
+	}
+
+	switch mType {
+	case common.CounterMetric:
+		metric.MType = string(common.CounterMetric)
+		metric.Delta = &delta
+	case common.GaugeMetric:
+		metric.MType = string(common.GaugeMetric)
+		metric.Value = &value
+	}
+
+	if name == "error_metric" {
+		return common.Metrics{}, errors.New("Get() error")
+	}
+
+	return metric, nil
 }
 func (ts *TestStorage) Set(common.Metrics) error {
 	return errors.New("Set() error")
@@ -37,7 +57,7 @@ func TestHandlers_text(t *testing.T) {
 	type want struct {
 		contentType string
 		statusCode  int
-		body string
+		body        string
 	}
 	tests := []struct {
 		name    string
@@ -106,7 +126,7 @@ func TestHandlers_text(t *testing.T) {
 			want: want{
 				contentType: "text/plain",
 				statusCode:  http.StatusOK,
-				body: "100.35",
+				body:        "100.35",
 			},
 		},
 		{
@@ -116,7 +136,7 @@ func TestHandlers_text(t *testing.T) {
 			want: want{
 				contentType: "text/plain",
 				statusCode:  http.StatusOK,
-				body: "400",
+				body:        "400",
 			},
 		},
 		{
@@ -171,7 +191,6 @@ func TestHandlers_text(t *testing.T) {
 	}
 }
 
-
 func TestHandler_errorStorage(t *testing.T) {
 	server := Server{repository: &TestStorage{}}
 	server.InitLogging()
@@ -222,4 +241,31 @@ func TestHandler_errorStorage(t *testing.T) {
 			assert.Contains(t, result.Header.Get("Content-Type"), tt.want.contentType)
 		})
 	}
+}
+
+func BenchmarkGetMetricHandle(b *testing.B) {
+	server := Server{repository: &TestStorage{}}
+	server.InitLogging()
+
+	router := server.setupRouter()
+
+	b.ResetTimer()
+
+	b.Run("counter", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			request := httptest.NewRequest(http.MethodGet, "/value/counter/counterMetric", nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, request)
+		}
+	})
+
+	b.Run("gauge", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			request := httptest.NewRequest(http.MethodGet, "/value/gauge/gaugeMetric", nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, request)
+		}
+	})
 }
