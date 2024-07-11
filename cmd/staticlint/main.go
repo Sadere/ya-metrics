@@ -6,6 +6,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 
+	"github.com/gostaticanalysis/nilerr"
+	"github.com/kkHAIKE/contextcheck"
 	"golang.org/x/tools/go/analysis/passes/appends"
 	"golang.org/x/tools/go/analysis/passes/asmdecl"
 	"golang.org/x/tools/go/analysis/passes/assign"
@@ -126,5 +128,12 @@ func main() {
 		}
 	}
 
+	// Добавляем nilerr
+	analyzers = append(analyzers, nilerr.Analyzer)
+
+	// Добавляем contextcheck
+	analyzers = append(analyzers, contextcheck.NewAnalyzer(contextcheck.Configuration{}))
+
+	// Запускаем все проверки
 	multichecker.Main(analyzers...)
 }
