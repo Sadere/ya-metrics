@@ -11,6 +11,7 @@ import (
 	"github.com/Sadere/ya-metrics/internal/common"
 )
 
+// Главная структура агента
 type MetricAgent struct {
 	config    config.Config
 	pollCount int64
@@ -37,6 +38,7 @@ func (a *MetricAgent) worker(id int) {
 	}
 }
 
+// Основной метод агента, запускает расчет метрик и отправку их на сервер
 func Run() {
 	agent := MetricAgent{
 		config:    config.NewConfig(),

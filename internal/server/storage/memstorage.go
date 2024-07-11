@@ -53,7 +53,7 @@ func (m MemMetricRepository) Get(metricType common.MetricType, key string) (comm
 
 func (m MemMetricRepository) Set(metric common.Metrics) error {
 	key := metric.ID
-	
+
 	if len(key) == 0 {
 		return errors.New("key shouldn't be empty")
 	}
@@ -91,7 +91,6 @@ func (m MemMetricRepository) GetData() (map[string]common.Metrics, error) {
 
 	return result, nil
 }
-
 
 func (m MemMetricRepository) SetData(metrics map[string]common.Metrics) error {
 	for k, v := range metrics {

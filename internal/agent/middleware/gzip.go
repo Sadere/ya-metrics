@@ -8,6 +8,7 @@ import (
 	"net/http"
 )
 
+// middleware позволяющий сжать тело запрсоа по алгоритму gzip
 type GzipRoundTripper struct {
 	Next http.RoundTripper
 }

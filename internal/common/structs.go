@@ -1,3 +1,4 @@
+// Пакет хранит структуры, типы и константы общие для сервера и агента
 package common
 
 import (
@@ -6,15 +7,18 @@ import (
 	"strings"
 )
 
+// Адрес хоста в формате <host>:<port>
 type NetAddress struct {
 	Host string
 	Port int
 }
 
+// Выводит адрес в виде строки <host>:<port>
 func (addr *NetAddress) String() string {
 	return fmt.Sprintf("%s:%d", addr.Host, addr.Port)
 }
 
+// Парсинг адреса из строки
 func (addr *NetAddress) Set(flagValue string) error {
 	addrParts := strings.Split(flagValue, ":")
 
@@ -31,6 +35,7 @@ func (addr *NetAddress) Set(flagValue string) error {
 	return nil
 }
 
+// Тип метрики
 type MetricType string
 
 const (
@@ -39,6 +44,7 @@ const (
 	HashHeader               = "HashSHA256"
 )
 
+// Структура для хранения одной метрики
 type Metrics struct {
 	ID    string   `json:"id" db:"name"`               // имя метрики
 	MType string   `json:"type" db:"mtype"`            // параметр, принимающий значение gauge или counter
