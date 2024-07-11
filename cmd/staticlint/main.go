@@ -49,10 +49,15 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
 	"golang.org/x/tools/go/analysis/passes/unusedwrite"
 	"golang.org/x/tools/go/analysis/passes/usesgenerics"
+
+	"github.com/Sadere/ya-metrics/internal/linters"
 )
 
 func main() {
 	multichecker.Main(
+		// проверка на os.Exit в main
+		linters.NewExitAnalyzer(),
+
 		// стандартные проверки из пакета golang.org/x/tools/go/analysis
 		appends.Analyzer,
 		asmdecl.Analyzer,
