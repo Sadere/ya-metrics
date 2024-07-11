@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -17,6 +18,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
+)
+
+// Информация о сборке
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 // Основная структура сервера
@@ -151,6 +159,9 @@ func (s *Server) InitLogging() {
 
 // Точка входа в сервер, настройка и запуск сервера
 func Run() {
+	// Выводим информацию о сборке
+	fmt.Print(common.BuildInfo(buildVersion, buildDate, buildCommit))
+
 	server := &Server{}
 	server.config = config.NewConfig()
 	server.fileManager = storage.NewFileManager(server.config.FileStoragePath)
