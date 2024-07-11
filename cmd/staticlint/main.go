@@ -1,6 +1,9 @@
 package main
 
 import (
+	"strings"
+
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -49,15 +52,13 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
 	"golang.org/x/tools/go/analysis/passes/unusedwrite"
 	"golang.org/x/tools/go/analysis/passes/usesgenerics"
+	"honnef.co/go/tools/staticcheck"
 
 	"github.com/Sadere/ya-metrics/internal/linters"
 )
 
 func main() {
-	multichecker.Main(
-		// проверка на os.Exit в main
-		linters.NewExitAnalyzer(),
-
+	analyzers := []*analysis.Analyzer{
 		// стандартные проверки из пакета golang.org/x/tools/go/analysis
 		appends.Analyzer,
 		asmdecl.Analyzer,
@@ -105,5 +106,25 @@ func main() {
 		unusedresult.Analyzer,
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
-	)
+	}
+
+	// Проверка на os.Exit в main
+	analyzers = append(analyzers, linters.NewExitAnalyzer())
+
+	// Добавляем проверки из staticheck
+	staticChecks := map[string]bool{
+		"S1009":  true, // Omit redundant nil check on slices, maps, and channels
+		"S1028":  true, // Simplify error construction with fmt.Errorf
+		"ST1013": true, // Should use constants for HTTP error codes, not magic numbers
+		"QF1006": true, // Lift if+break into loop condition
+		"QF1007": true, // Merge conditional assignment into variable declaration
+	}
+
+	for _, v := range staticcheck.Analyzers {
+		if strings.HasPrefix(v.Analyzer.Name, "SA") || staticChecks[v.Analyzer.Name] {
+			analyzers = append(analyzers, v.Analyzer)
+		}
+	}
+
+	multichecker.Main(analyzers...)
 }
