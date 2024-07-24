@@ -24,8 +24,9 @@ type Config struct {
 
 	PollInterval, // Интервал запроса метрик системы в секундах
 	ReportInterval int // Интервал отправки метрик на сервер в секундах
-	CryptoKey string // Ключ для хеширования тела запроса
-	RateLimit int    // Кол-во одновременных отправок на сервер (кол-во воркеров)
+	HashKey        string // Ключ для хеширования тела запроса
+	RateLimit      int    // Кол-во одновременных отправок на сервер (кол-во воркеров)
+	PubKeyFilePath string // Путь к файлу публичного ключа шифрования в формате PEM
 }
 
 // Возвращает структура конфига с установленными настройками
@@ -42,8 +43,9 @@ func NewConfig() Config {
 	flag.IntVar(&newConfig.PollInterval, "p", DefaultPollInterval, "Частота сбора метрик")
 	flag.IntVar(&newConfig.ReportInterval, "r", DefaultReportInterval, "Частота опроса сервера в секундах")
 	flag.Var(&newConfig.ServerAddress, "a", "Адрес сервера")
-	flag.StringVar(&newConfig.CryptoKey, "k", "", "Ключ для хеширования передаваемых данных")
+	flag.StringVar(&newConfig.HashKey, "k", "", "Ключ для хеширования передаваемых данных")
 	flag.IntVar(&newConfig.RateLimit, "l", DefaultRateLimit, "Лимит одновременных отправок на сервер")
+	flag.StringVar(&newConfig.PubKeyFilePath, "crypto-key", "", "Путь к файлу публичного ключа шифрования в формате PEM")
 	flag.Parse()
 
 	// Берем опции из переменных окружения
@@ -72,7 +74,7 @@ func NewConfig() Config {
 	}
 
 	if envKey := os.Getenv("KEY"); len(envKey) > 0 {
-		newConfig.CryptoKey = envKey
+		newConfig.HashKey = envKey
 	}
 
 	if envRateLimit := os.Getenv("RATE_LIMIT"); len(envRateLimit) > 0 {
@@ -81,6 +83,10 @@ func NewConfig() Config {
 			number = DefaultRateLimit
 		}
 		newConfig.RateLimit = number
+	}
+
+	if envPubKey := os.Getenv("CRYPTO_KEY"); len(envPubKey) > 0 {
+		newConfig.PubKeyFilePath = envPubKey
 	}
 
 	return newConfig

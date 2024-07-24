@@ -2,39 +2,83 @@ package middleware
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/Sadere/ya-metrics/internal/common"
 )
 
-// middleware для вычисления хеша из тела запроса и передачи хеша в заголовке
-type HashRoundTripper struct {
-	Key  []byte
-	Next http.RoundTripper
+// middleware для шифрования тела запроса
+type CryptoRoundTripper struct {
+	KeyFilePath string
+	Next        http.RoundTripper
 }
 
-func (ht *HashRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	if len(ht.Key) == 0 {
-		return ht.Next.RoundTrip(r)
+func (rt *CryptoRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	// читаем файл публичного ключа
+	pubKeyPEM, err := os.ReadFile(rt.KeyFilePath)
+	if err != nil {
+		return nil, err
 	}
 
+	// парсим данные из формата PEM
+	pubKeyBlock, _ := pem.Decode(pubKeyPEM)
+	pubKey, err := x509.ParsePKIXPublicKey(pubKeyBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// читаем тело запроса
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	// Создаем новый r.Body т.к. мы прочитали все данные
-	r.Body = io.NopCloser(bytes.NewReader(body))
+	// создаем ключ AES-256
+	key, err := common.GenerateRandom(2 * aes.BlockSize)
+	if err != nil {
+		return nil, err
+	}
 
-	h := hmac.New(sha256.New, ht.Key)
-	h.Write(body)
-	bodyHash := h.Sum(nil)
+	AESBlock, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
 
-	r.Header.Set(common.HashHeader, hex.EncodeToString(bodyHash))
+	// создаем блочный шифр
+	GCM, err := cipher.NewGCM(AESBlock)
+	if err != nil {
+		return nil, err
+	}
 
-	return ht.Next.RoundTrip(r)
+	// создаём вектор инициализации
+	nonce, err := common.GenerateRandom(GCM.NonceSize())
+	if err != nil {
+		return nil, err
+	}
+
+	// зашифровываем тело запроса
+	encrypted := GCM.Seal(nonce, nonce, body, nil)
+
+	// зашифровываем AES ключ с помощью RSA
+	encryptedAESKey, err := rsa.EncryptPKCS1v15(rand.Reader, pubKey.(*rsa.PublicKey), key)
+	if err != nil {
+		return nil, err
+	}
+
+	// ставим заголовок с ключом AES
+	r.Header.Set(common.AESKeyHeader, hex.EncodeToString(encryptedAESKey))
+
+	// заменияем тело зашифрованным текстом
+	r.Body = io.NopCloser(bytes.NewReader(encrypted))
+
+	return rt.Next.RoundTrip(r)
 }

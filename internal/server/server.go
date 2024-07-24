@@ -49,10 +49,20 @@ func (s *Server) setupRouter() *gin.Engine {
 	r.Use(middleware.GzipDecompress())
 
 	// Проверка хеша
-	r.Use(middleware.ValidateHash(s.config.CryptoKey))
+	r.Use(middleware.ValidateHash(s.config.HashKey))
+
+	// Дешифровка запроса
+	if len(s.config.PrivateKeyPath) > 0 {
+		RSAMiddleware, err := middleware.Decrypt(s.config.PrivateKeyPath)
+		if err != nil {
+			s.log.Sugar().Errorf("unable to initialize RSA decryption middleware: %s", err.Error())
+		} else {
+			r.Use(RSAMiddleware)
+		}
+	}
 
 	// Хеш ответа
-	r.Use(middleware.HashResponse(s.config.CryptoKey))
+	r.Use(middleware.HashResponse(s.config.HashKey))
 
 	// Упаковываем ответ
 	r.Use(middleware.GzipCompress())

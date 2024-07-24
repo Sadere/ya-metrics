@@ -42,6 +42,7 @@ const (
 	CounterMetric MetricType = "counter"
 	GaugeMetric   MetricType = "gauge"
 	HashHeader               = "HashSHA256"
+	AESKeyHeader             = "X-AES-Key"
 )
 
 // Структура для хранения одной метрики

@@ -51,15 +51,25 @@ func (a *MetricAgent) sendMetrics(metrics []common.Metrics) error {
 
 	client := resty.New()
 
-	// Используем middleware для сжатия gzip и хеширования запроса
-	client.SetTransport(
-		&middleware.HashRoundTripper{
-			Key: []byte(a.config.CryptoKey),
-			Next: &middleware.GzipRoundTripper{
-				Next: http.DefaultTransport,
-			},
-		},
-	)
+	// Настраиваем middleware
+	transport := &middleware.HashRoundTripper{
+		Key: []byte(a.config.HashKey),
+	}
+	gzipTransport := &middleware.GzipRoundTripper{
+		Next: http.DefaultTransport,
+	}
+
+	// middleware для шифрования
+	if len(a.config.PubKeyFilePath) > 0 {
+		transport.Next = &middleware.CryptoRoundTripper{
+			KeyFilePath: a.config.PubKeyFilePath,
+			Next:        gzipTransport,
+		}
+	} else {
+		transport.Next = gzipTransport
+	}
+
+	client.SetTransport(transport)
 
 	path := "/updates/"
 
