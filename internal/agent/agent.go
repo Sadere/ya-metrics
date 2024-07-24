@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -9,6 +10,13 @@ import (
 
 	"github.com/Sadere/ya-metrics/internal/agent/config"
 	"github.com/Sadere/ya-metrics/internal/common"
+)
+
+// Информация о сборке
+var (
+	buildVersion string
+	buildDate string
+	buildCommit string
 )
 
 // Главная структура агента
@@ -40,6 +48,9 @@ func (a *MetricAgent) worker(id int) {
 
 // Основной метод агента, запускает расчет метрик и отправку их на сервер
 func Run() {
+	// Выводим информацию о сборке
+	fmt.Print(common.BuildInfo(buildVersion, buildDate, buildCommit))
+
 	agent := MetricAgent{
 		config:    config.NewConfig(),
 		pollCount: 0,

@@ -13,7 +13,7 @@ func (s *Server) updateHandleJSON(c *gin.Context) {
 	var metric common.Metrics
 	var err error
 
-	if err := c.BindJSON(&metric); err != nil {
+	if err = c.BindJSON(&metric); err != nil {
 		c.String(http.StatusBadRequest, "failed to parse provided metric")
 		return
 	}
@@ -44,7 +44,7 @@ func (s *Server) getMetricHandleJSON(c *gin.Context) {
 	var metric common.Metrics
 	var err error
 
-	if err := c.BindJSON(&metric); err != nil {
+	if err = c.BindJSON(&metric); err != nil {
 		c.String(http.StatusBadRequest, "failed to parse provided metric")
 		return
 	}
@@ -75,7 +75,7 @@ func (s *Server) updateBatchHandleJSON(c *gin.Context) {
 	var metrics []common.Metrics
 	var err error
 
-	if err := c.BindJSON(&metrics); err != nil {
+	if err = c.BindJSON(&metrics); err != nil {
 		msg := "failed to parse metric list"
 
 		s.log.Sugar().Error(msg)
