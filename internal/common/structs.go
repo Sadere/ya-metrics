@@ -35,6 +35,12 @@ func (addr *NetAddress) Set(flagValue string) error {
 	return nil
 }
 
+// Адрес из JSON данных
+func (addr *NetAddress) UnmarshalJSON(data []byte) error {
+	value := string(data[1:len(data)-1])
+	return addr.Set(value)
+}
+
 // Тип метрики
 type MetricType string
 
