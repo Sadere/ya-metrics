@@ -77,7 +77,7 @@ func Run() {
 	// Ловим сигналы отключения агента
 	quit := make(chan os.Signal, 1)
 
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-quit
 
 	// Закрываем всех воркеров

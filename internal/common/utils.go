@@ -1,6 +1,9 @@
 package common
 
-import "strings"
+import (
+	"crypto/rand"
+	"strings"
+)
 
 func BuildInfo(buildVersion string, buildDate string, buildCommit string) string {
 	var sb strings.Builder
@@ -21,4 +24,15 @@ func BuildInfo(buildVersion string, buildDate string, buildCommit string) string
 	writePart("Build commit: ", buildCommit)
 
 	return sb.String()
+}
+
+func GenerateRandom(size int) ([]byte, error) {
+	// генерируем криптостойкие случайные байты в b
+	b := make([]byte, size)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }

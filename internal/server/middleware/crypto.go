@@ -2,122 +2,90 @@ package middleware
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"io"
-	"log"
 	"net/http"
+	"os"
 
 	"github.com/Sadere/ya-metrics/internal/common"
 	"github.com/gin-gonic/gin"
 )
 
-// Обертка над gin.ResponseWriter позволяющая проставить заголовок содержащий хеш тела
-type bodyHashWriter struct {
-	gin.ResponseWriter
-
-	statusCode int
-	h          http.Header
-	body       *bytes.Buffer
-}
-
-func (w *bodyHashWriter) Write(b []byte) (int, error) {
-	return w.body.Write(b)
-}
-
-func (w *bodyHashWriter) Header() http.Header {
-	return w.h
-}
-
-func (w *bodyHashWriter) WriteHeader(statusCode int) {
-	w.statusCode = statusCode
-}
-
-func (w *bodyHashWriter) Done() {
-	originalHeader := w.ResponseWriter.Header()
-	for key, value := range w.Header() {
-		originalHeader[key] = value
-	}
-
-	w.ResponseWriter.WriteHeader(w.statusCode)
-
-	_, err := w.ResponseWriter.Write(w.body.Bytes())
+// инициализирует middleware для расшифровки тела запроса, возвращает ошибку в случае неудачи
+func Decrypt(privKeyFilePath string) (gin.HandlerFunc, error) {
+	// читаем файл приватного ключа
+	privKeyPEM, err := os.ReadFile(privKeyFilePath)
 	if err != nil {
-		log.Fatal(err.Error())
+		return nil, err
 	}
-}
 
-// Сверяем хеш запроса
-func ValidateHash(key string) gin.HandlerFunc {
+	// парсим ключ из содержимого файла
+	privKeyBlock, _ := pem.Decode(privKeyPEM)
+	privKey, err := x509.ParsePKCS1PrivateKey(privKeyBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// сам middleware
 	return func(c *gin.Context) {
-		providedHash := c.Request.Header.Get(common.HashHeader)
+		// проверяем AES ключ из заголовка
+		encAESKey := c.Request.Header.Get(common.AESKeyHeader)
 
-		if providedHash == "" {
+		if len(encAESKey) == 0 {
 			c.Next()
 			return
 		}
 
-		// Читаем тело запроса и считаем хеш из ключа
+		// расшифровываем AES ключ
+		keyBytes, err := hex.DecodeString(encAESKey)
+		if err != nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		AESKey, err := rsa.DecryptPKCS1v15(rand.Reader, privKey, keyBytes)
+		if err != nil {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		// создаем AES блок
+		AESBlock, err := aes.NewCipher(AESKey)
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		GCM, err := cipher.NewGCM(AESBlock)
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		// читаем тело запроса
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "unexpected error: %s", err.Error())
-			c.Abort()
+			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
-		// Возвращаем на место тело запроса
-		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		// вектор инициализации
+		nonce := body[:GCM.NonceSize()]
+		cipherText := body[GCM.NonceSize():]
 
-		h := hmac.New(sha256.New, []byte(key))
-		h.Write(body)
-
-		ourHash := h.Sum(nil)
-
-		theirHash, err := hex.DecodeString(providedHash)
+		decrypted, err := GCM.Open(nil, nonce, cipherText, nil)
 		if err != nil {
-			c.String(http.StatusBadRequest, "failed to decode hash")
-			c.Abort()
+			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
-		if !hmac.Equal(ourHash, theirHash) {
-			c.String(http.StatusBadRequest, "hash mismatch")
-			c.Abort()
-			return
-		}
-
+		// заменяем тело на расшифрованное
+		c.Request.Body = io.NopCloser(bytes.NewReader(decrypted))
 		c.Next()
-	}
-}
-
-// Считаем хеш ответа от сервера
-func HashResponse(key string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if len(key) == 0 {
-			return
-		}
-
-		// Подменяем writer
-		hashWriter := &bodyHashWriter{
-			ResponseWriter: c.Writer,
-			body:           bytes.NewBufferString(""),
-			h:              make(http.Header),
-		}
-		c.Writer = hashWriter
-
-		defer hashWriter.Done()
-
-		// Делаем что-то
-		c.Next()
-
-		// Хешируем ответ
-		h := hmac.New(sha256.New, []byte(key))
-		h.Write(hashWriter.body.Bytes())
-
-		responseHash := h.Sum(nil)
-
-		// Ставим заголовок
-		c.Header(common.HashHeader, hex.EncodeToString(responseHash))
-	}
+	}, nil
 }
