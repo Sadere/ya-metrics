@@ -2,6 +2,7 @@ package common
 
 import (
 	"crypto/rand"
+	"net"
 	"strings"
 )
 
@@ -35,4 +36,19 @@ func GenerateRandom(size int) ([]byte, error) {
 	}
 
 	return b, nil
+}
+
+func GetLocalHost() (string, error) {
+    conn, err := net.Dial("udp", "8.8.8.8:80")
+    if err != nil {
+        return "", err
+    }
+    defer conn.Close()
+
+	addr, _, err := net.SplitHostPort(conn.LocalAddr().String())
+	if err != nil {
+		return "", err
+	}
+
+    return addr, nil
 }

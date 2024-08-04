@@ -28,6 +28,7 @@ type Config struct {
 	HashKey        string            // Ключ для хеширования тела запроса
 	RateLimit      int               // Кол-во одновременных отправок на сервер (кол-во воркеров)
 	PubKeyFilePath string            `json:"crypto_key"` // Путь к файлу публичного ключа шифрования в формате PEM
+	HostAddress    string
 }
 
 // Возвращает структура конфига с установленными настройками

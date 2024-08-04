@@ -80,6 +80,7 @@ func (a *MetricAgent) sendMetrics(metrics []common.Metrics) error {
 
 	result, err := client.R().
 		SetHeader("Content-Type", "application/json").
+		SetHeader(common.IPHeader, a.config.HostAddress).
 		SetBody(body).
 		Post(baseURL + path)
 
