@@ -15,7 +15,9 @@ func TestHandlers_updateJSON(t *testing.T) {
 	server := Server{repository: storage.NewMemRepository()}
 	server.InitLogging()
 
-	router := server.setupRouter()
+	router, err := server.setupRouter()
+
+	assert.NoError(t, err)
 
 	type want struct {
 		contentType string
@@ -167,7 +169,9 @@ func TestHandlerJSON_errorStorage(t *testing.T) {
 	server := Server{repository: &TestStorage{}}
 	server.InitLogging()
 
-	router := server.setupRouter()
+	router, err := server.setupRouter()
+
+	assert.NoError(t, err)
 
 	type want struct {
 		contentType string

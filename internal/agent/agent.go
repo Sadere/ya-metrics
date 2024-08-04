@@ -57,6 +57,14 @@ func Run() {
 		workChan:  make(chan []common.Metrics),
 	}
 
+	// Получаем локальный хост
+	host, err := common.GetLocalHost()
+	if err != nil {
+		log.Fatalf("unable to retrieve local host: %s", err)
+	}
+
+	agent.config.HostAddress = host
+
 	agent.doneChan = make(chan struct{}, agent.config.RateLimit)
 
 	for i := 0; i < agent.config.RateLimit; i++ {

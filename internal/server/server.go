@@ -36,7 +36,7 @@ type Server struct {
 	db          *sqlx.DB                 // Указатель на соединение с БД
 }
 
-func (s *Server) setupRouter() *gin.Engine {
+func (s *Server) setupRouter() (*gin.Engine, error) {
 	r := gin.New()
 
 	// Подключаем логи
@@ -44,6 +44,16 @@ func (s *Server) setupRouter() *gin.Engine {
 
 	// Стандартный обработчик паники
 	r.Use(gin.Recovery())
+
+	if len(s.config.TrustedSubnet) > 0 {
+		IPMiddleware, err := middleware.ValidateIP(s.config.TrustedSubnet)
+		if err != nil {
+			s.log.Sugar().Fatalf("failed to setup trusted subnet: %s", err)
+			return nil, err
+		}
+
+		r.Use(IPMiddleware)
+	}
 
 	// Распаковываем запрос
 	r.Use(middleware.GzipDecompress())
@@ -84,7 +94,7 @@ func (s *Server) setupRouter() *gin.Engine {
 	// Вывод всех метрик в HTML
 	r.GET(`/`, s.getAllMetricsHandle)
 
-	return r
+	return r, nil
 }
 
 func (s *Server) restoreState() {
@@ -123,9 +133,13 @@ func (s *Server) saveState() {
 }
 
 // Запуск http-сервера
-func (s *Server) StartServer() {
+func (s *Server) StartServer() error {
 	// Инициализируем роутер
-	r := s.setupRouter()
+	r, err := s.setupRouter()
+	
+	if err != nil {
+		return err
+	}
 
 	// Загружаем HTML шаблоны
 	execFile, _ := os.Executable()
@@ -155,6 +169,8 @@ func (s *Server) StartServer() {
 	if s.config.StoreInterval == 0 {
 		s.saveState()
 	}
+
+	return nil
 }
 
 // Инициализация логов
@@ -212,5 +228,8 @@ func Run() {
 	}
 
 	// Запускаем сервер
-	server.StartServer()
+	err := server.StartServer()
+	if err != nil {
+		server.log.Sugar().Fatalf("couldn't start server: %s\n", err)
+	}
 }
