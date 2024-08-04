@@ -52,7 +52,9 @@ func TestHandlers_text(t *testing.T) {
 	server := Server{repository: storage.NewMemRepository()}
 	server.InitLogging()
 
-	router := server.setupRouter()
+	router, err := server.setupRouter()
+
+	assert.NoError(t, err)
 
 	type want struct {
 		contentType string
@@ -195,7 +197,9 @@ func TestHandler_errorStorage(t *testing.T) {
 	server := Server{repository: &TestStorage{}}
 	server.InitLogging()
 
-	router := server.setupRouter()
+	router, err := server.setupRouter()
+
+	assert.NoError(t, err)
 
 	type want struct {
 		contentType string
@@ -247,7 +251,9 @@ func BenchmarkGetMetricHandle(b *testing.B) {
 	server := Server{repository: &TestStorage{}}
 	server.InitLogging()
 
-	router := server.setupRouter()
+	router, err := server.setupRouter()
+
+	assert.NoError(b, err)
 
 	b.ResetTimer()
 

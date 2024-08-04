@@ -26,7 +26,8 @@ type Config struct {
 	Restore         bool              `json:"restore"`        // Восстанавливать данные из файла
 	PostgresDSN     string            `json:"database_dsn"`   // DSN строка для подключения к бд
 	HashKey         string            // Ключ для проверки хеша и хеширования ответов сервера
-	PrivateKeyPath  string            `json:"crypto_key"` // Путь к файлу приватного ключа в формате PEM
+	PrivateKeyPath  string            `json:"crypto_key"`     // Путь к файлу приватного ключа в формате PEM
+	TrustedSubnet   string            `json:"trusted_subnet"` // Доверенная подсеть, если пусто, то все IP доверенные
 }
 
 func NewConfig() Config {
@@ -48,6 +49,7 @@ func NewConfig() Config {
 		flagPostgresDSN     string
 		flagHashKey         string
 		flagPrivateKeyPath  string
+		flagTrustedSubnet   string
 
 		cfgFilePath string
 	)
@@ -61,6 +63,7 @@ func NewConfig() Config {
 	flag.StringVar(&flagHashKey, "k", "", "Ключ для проверки хеша и хеширования ответов сервера")
 	flag.StringVar(&flagPrivateKeyPath, "crypto-key", "", "Путь к файлу приватного ключа в формате PEM")
 	flag.StringVar(&cfgFilePath, "c", "", "Путь к файлу конфига")
+	flag.StringVar(&flagTrustedSubnet, "t", "", "Доверенная подсеть")
 	flag.Parse()
 
 	// Берем конфигурацию из файла, если передан путь до конфига
@@ -126,11 +129,18 @@ func NewConfig() Config {
 		newConfig.PrivateKeyPath = flagPrivateKeyPath
 	}
 
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); len(envTrustedSubnet) > 0 {
+		newConfig.TrustedSubnet = envTrustedSubnet
+	} else if len(flagTrustedSubnet) > 0 {
+		newConfig.TrustedSubnet = flagTrustedSubnet
+	}
+
 	fmt.Printf("address = %s\n", newConfig.Address.String())
 	fmt.Printf("log level = %s\n", newConfig.LogLevel)
 	fmt.Printf("store interval = %d sec\n", newConfig.StoreInterval)
 	fmt.Printf("file storage path = %s\n", newConfig.FileStoragePath)
 	fmt.Printf("private key path = %s\n", newConfig.PrivateKeyPath)
+	fmt.Printf("trusted subnet = %s\n", newConfig.TrustedSubnet)
 
 	return newConfig
 }
