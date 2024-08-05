@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Sadere/ya-metrics/internal/common"
+	"github.com/Sadere/ya-metrics/internal/server/service"
 	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/stretchr/testify/assert"
 )
@@ -49,7 +50,7 @@ func (ts *TestStorage) SetData(map[string]common.Metrics) error {
 }
 
 func TestHandlers_text(t *testing.T) {
-	server := Server{repository: storage.NewMemRepository()}
+	server := Server{metricService: service.NewMetricService(storage.NewMemRepository())}
 	server.InitLogging()
 
 	router, err := server.setupRouter()
@@ -194,7 +195,7 @@ func TestHandlers_text(t *testing.T) {
 }
 
 func TestHandler_errorStorage(t *testing.T) {
-	server := Server{repository: &TestStorage{}}
+	server := Server{metricService: service.NewMetricService(&TestStorage{})}
 	server.InitLogging()
 
 	router, err := server.setupRouter()
@@ -248,7 +249,7 @@ func TestHandler_errorStorage(t *testing.T) {
 }
 
 func BenchmarkGetMetricHandle(b *testing.B) {
-	server := Server{repository: &TestStorage{}}
+	server := Server{metricService: service.NewMetricService(&TestStorage{})}
 	server.InitLogging()
 
 	router, err := server.setupRouter()

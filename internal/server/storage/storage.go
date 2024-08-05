@@ -1,7 +1,13 @@
 package storage
 
 import (
+	"errors"
+
 	"github.com/Sadere/ya-metrics/internal/common"
+)
+
+var (
+	ErrMetricNotFound = errors.New("metric not found")
 )
 
 // Интерфейс для хранения данных о метриках

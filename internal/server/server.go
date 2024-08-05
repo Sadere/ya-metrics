@@ -14,6 +14,7 @@ import (
 	"github.com/Sadere/ya-metrics/internal/server/config"
 	"github.com/Sadere/ya-metrics/internal/server/logger"
 	"github.com/Sadere/ya-metrics/internal/server/middleware"
+	"github.com/Sadere/ya-metrics/internal/server/service"
 	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -29,11 +30,11 @@ var (
 
 // Основная структура сервера
 type Server struct {
-	config      config.Config            // Конфиг сервера
-	repository  storage.MetricRepository // Репозиторий метрики
-	fileManager *storage.FileManager     // Менеджер файла хранящий метрики
-	log         *zap.Logger              // Лог
-	db          *sqlx.DB                 // Указатель на соединение с БД
+	config        config.Config          // Конфиг сервера
+	metricService *service.MetricService // Сервис метрик
+	fileManager   *storage.FileManager   // Менеджер файла хранящий метрики
+	log           *zap.Logger            // Лог
+	db            *sqlx.DB               // Указатель на соединение с БД
 }
 
 func (s *Server) setupRouter() (*gin.Engine, error) {
@@ -109,14 +110,14 @@ func (s *Server) restoreState() {
 		metricsData[m.ID] = m
 	}
 
-	err = s.repository.SetData(metricsData)
+	err = s.metricService.SaveMetrics(metricsData)
 	if err != nil {
 		s.log.Sugar().Errorf("unable to restore state: %s", err.Error())
 	}
 }
 
 func (s *Server) saveState() {
-	metrics, err := s.repository.GetData()
+	metrics, err := s.metricService.GetAllMetrics()
 	if err != nil {
 		s.log.Sugar().Errorf("unable to read state for saving: %s", err.Error())
 	}
@@ -136,7 +137,7 @@ func (s *Server) saveState() {
 func (s *Server) StartServer() error {
 	// Инициализируем роутер
 	r, err := s.setupRouter()
-	
+
 	if err != nil {
 		return err
 	}
@@ -192,6 +193,8 @@ func Run() {
 	server.config = config.NewConfig()
 	server.fileManager = storage.NewFileManager(server.config.FileStoragePath)
 
+	var rep storage.MetricRepository
+
 	// Выбираем хранилище
 	if len(server.config.PostgresDSN) > 0 {
 		db, err := sqlx.Connect("pgx", server.config.PostgresDSN)
@@ -200,10 +203,12 @@ func Run() {
 		}
 
 		server.db = db
-		server.repository = storage.NewPgRepository(db)
+		rep = storage.NewPgRepository(db)
 	} else {
-		server.repository = storage.NewMemRepository()
+		rep = storage.NewMemRepository()
 	}
+
+	server.metricService = service.NewMetricService(rep)
 
 	// Инициализируем логи
 	server.InitLogging()

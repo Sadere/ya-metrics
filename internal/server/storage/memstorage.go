@@ -37,14 +37,14 @@ func (m MemMetricRepository) Get(metricType common.MetricType, key string) (comm
 	case common.CounterMetric:
 		value, ok := m.MetricCounters[key]
 		if !ok {
-			return metric, fmt.Errorf("no data with %s key", key)
+			return metric, ErrMetricNotFound
 		}
 		metric.MType = string(common.CounterMetric)
 		metric.Delta = &value
 	case common.GaugeMetric:
 		value, ok := m.MetricGauges[key]
 		if !ok {
-			return metric, fmt.Errorf("no data with %s key", key)
+			return metric, ErrMetricNotFound
 		}
 		metric.MType = string(common.GaugeMetric)
 		metric.Value = &value

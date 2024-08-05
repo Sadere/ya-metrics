@@ -1,17 +1,22 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/Sadere/ya-metrics/internal/common"
+	"github.com/Sadere/ya-metrics/internal/server/service"
+	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/gin-gonic/gin"
 )
 
 func (s *Server) updateHandle(c *gin.Context) {
 	metricType := c.Param("type")
+
+	c.Header("Content-Type", "text/plain; charset=utf-8")
 
 	switch metricType {
 	case string(common.GaugeMetric):
@@ -35,7 +40,7 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 		return
 	}
 
-	err = s.repository.Set(common.Metrics{
+	_, err = s.metricService.UpdateMetric(common.Metrics{
 		ID:    name,
 		MType: string(common.GaugeMetric),
 		Value: &valueFloat,
@@ -44,8 +49,6 @@ func (s *Server) updateGaugeHandle(c *gin.Context) {
 		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
-
-	c.Header("Content-Type", "text/plain; charset=utf-8")
 }
 
 func (s *Server) updateCounterHandle(c *gin.Context) {
@@ -58,64 +61,42 @@ func (s *Server) updateCounterHandle(c *gin.Context) {
 		return
 	}
 
-	_, err = s.addOrSetCounter(name, addValue)
+	_, err = s.metricService.UpdateMetric(common.Metrics{
+		ID:    name,
+		MType: string(common.CounterMetric),
+		Delta: &addValue,
+	})
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
 	}
-
-	c.Header("Content-Type", "text/plain; charset=utf-8")
-}
-
-func (s *Server) addOrSetCounter(name string, addValue int64) (common.Metrics, error) {
-	metric, err := s.repository.Get(common.CounterMetric, name)
-	if err != nil {
-		// Создаем новую метрику если нет такой
-		deltaVar := int64(0)
-		metric = common.Metrics{
-			ID:    name,
-			MType: string(common.CounterMetric),
-			Delta: &deltaVar,
-		}
-	}
-
-	*metric.Delta += addValue
-
-	err = s.repository.Set(metric)
-	if err != nil {
-		return metric, err
-	}
-
-	return metric, nil
 }
 
 func (s *Server) getMetricHandle(c *gin.Context) {
 	metricType := c.Param("type")
 	metricName := c.Param("metric")
 
+	metric, err := s.metricService.GetMetric(common.MetricType(metricType), metricName)
+
+	if errors.Is(err, storage.ErrMetricNotFound) || errors.Is(err, service.ErrWrongMetricType) {
+		c.String(http.StatusNotFound, err.Error())
+		return
+	}
+
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	switch metricType {
 	case string(common.CounterMetric):
-		metric, err := s.repository.Get(common.CounterMetric, metricName)
-		if err != nil {
-			c.String(http.StatusNotFound, err.Error())
-			return
-		}
-
 		resultDelta := strconv.FormatInt(*metric.Delta, 10)
 
 		c.String(http.StatusOK, resultDelta)
 	case string(common.GaugeMetric):
-		metric, err := s.repository.Get(common.GaugeMetric, metricName)
-		if err != nil {
-			c.String(http.StatusNotFound, err.Error())
-			return
-		}
-
 		resultValue := strconv.FormatFloat(*metric.Value, 'f', 6, 64)
 		resultValue = strings.TrimRight(resultValue, "0")
 
 		c.String(http.StatusOK, resultValue)
-	default:
-		c.String(http.StatusNotFound, "unknown metric type")
 	}
 
 	c.Header("Content-Type", "text/plain; charset=utf-8")
@@ -127,7 +108,7 @@ func (s *Server) getAllMetricsHandle(c *gin.Context) {
 		Value string
 	}
 
-	data, err := s.repository.GetData()
+	data, err := s.metricService.GetAllMetrics()
 	if err != nil {
 		c.String(http.StatusNotFound, err.Error())
 		return

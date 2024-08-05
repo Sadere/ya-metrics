@@ -6,6 +6,7 @@ import (
 
 	"github.com/Sadere/ya-metrics/internal/common"
 	"github.com/Sadere/ya-metrics/internal/database"
+	"github.com/Sadere/ya-metrics/internal/server/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,22 +19,14 @@ func (s *Server) updateHandleJSON(c *gin.Context) {
 		return
 	}
 
-	switch metric.MType {
-	case string(common.GaugeMetric):
-		err = s.repository.Set(metric)
-	case string(common.CounterMetric):
-		metric, err = s.addOrSetCounter(metric.ID, *metric.Delta)
-	default:
-		c.String(http.StatusBadRequest, "Unknown metric type")
+	metric, err = s.metricService.UpdateMetric(metric)
+
+	if errors.Is(err, database.ErrDBConnection) {
+		c.String(http.StatusInternalServerError, "server's storage is down")
 		return
 	}
 
 	if err != nil {
-		if errors.Is(err, database.ErrDBConnection) {
-			c.String(http.StatusInternalServerError, "server's storage is down")
-			return
-		}
-
 		c.String(http.StatusBadRequest, err.Error())
 	}
 
@@ -49,21 +42,19 @@ func (s *Server) getMetricHandleJSON(c *gin.Context) {
 		return
 	}
 
-	switch metric.MType {
-	case string(common.GaugeMetric):
-		metric, err = s.repository.Get(common.GaugeMetric, metric.ID)
-	case string(common.CounterMetric):
-		metric, err = s.repository.Get(common.CounterMetric, metric.ID)
-	default:
-		c.String(http.StatusBadRequest, "unknown metric type")
+	metric, err = s.metricService.GetMetric(common.MetricType(metric.MType), metric.ID)
+
+	if errors.Is(err, service.ErrWrongMetricType) {
+		c.String(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if errors.Is(err, database.ErrDBConnection) {
+		c.String(http.StatusInternalServerError, "server's storage is down")
+		return
 	}
 
 	if err != nil {
-		if errors.Is(err, database.ErrDBConnection) {
-			c.String(http.StatusInternalServerError, "server's storage is down")
-			return
-		}
-
 		c.String(http.StatusNotFound, err.Error())
 		return
 	}
@@ -85,26 +76,23 @@ func (s *Server) updateBatchHandleJSON(c *gin.Context) {
 	}
 
 	for _, metric := range metrics {
-		switch metric.MType {
-		case string(common.GaugeMetric):
-			err = s.repository.Set(metric)
-		case string(common.CounterMetric):
-			metric, err = s.addOrSetCounter(metric.ID, *metric.Delta)
-		default:
-			msg := "unknown metric type"
+		_, err = s.metricService.UpdateMetric(metric)
 
-			s.log.Sugar().Error(msg)
+		if errors.Is(err, service.ErrWrongMetricType) {
+			s.log.Sugar().Error(err.Error())
 
-			c.String(http.StatusBadRequest, msg)
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
+
+		if errors.Is(err, database.ErrDBConnection) {
+			s.log.Sugar().Error(err.Error())
+
+			c.String(http.StatusInternalServerError, "server's storage is down")
 			return
 		}
 
 		if err != nil {
-			if errors.Is(err, database.ErrDBConnection) {
-				c.String(http.StatusInternalServerError, "server's storage is down")
-				return
-			}
-
 			s.log.Sugar().Error(err.Error())
 
 			c.String(http.StatusInternalServerError, "unknown error")

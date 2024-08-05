@@ -7,12 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Sadere/ya-metrics/internal/server/service"
 	"github.com/Sadere/ya-metrics/internal/server/storage"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHandlers_updateJSON(t *testing.T) {
-	server := Server{repository: storage.NewMemRepository()}
+	server := Server{metricService: service.NewMetricService(storage.NewMemRepository())}
 	server.InitLogging()
 
 	router, err := server.setupRouter()
@@ -166,7 +167,7 @@ func TestHandlers_updateJSON(t *testing.T) {
 }
 
 func TestHandlerJSON_errorStorage(t *testing.T) {
-	server := Server{repository: &TestStorage{}}
+	server := Server{metricService: service.NewMetricService(&TestStorage{})}
 	server.InitLogging()
 
 	router, err := server.setupRouter()
