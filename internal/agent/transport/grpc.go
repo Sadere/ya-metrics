@@ -9,6 +9,7 @@ import (
 	pb "github.com/Sadere/ya-metrics/internal/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 // Транспорт отправки метрик используя gRPC
@@ -43,7 +44,10 @@ func (t *GRPCMetricTransport) SendMetrics(metrics []common.Metrics) error {
 
 	req.Metrics = pbMetrics
 
-	res, err := t.client.SaveMetricsBatch(context.Background(), &req)
+	md := metadata.New(map[string]string{common.IPHeader: t.config.HostAddress})
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	res, err := t.client.SaveMetricsBatch(ctx, &req)
 
 	if err != nil {
 		return err
