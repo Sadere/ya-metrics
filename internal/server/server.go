@@ -3,20 +3,19 @@ package server
 import (
 	"fmt"
 	"log"
-	"net/http"
+	"net"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/Sadere/ya-metrics/internal/common"
 	"github.com/Sadere/ya-metrics/internal/server/config"
 	"github.com/Sadere/ya-metrics/internal/server/logger"
-	"github.com/Sadere/ya-metrics/internal/server/middleware"
+	"github.com/Sadere/ya-metrics/internal/server/rest"
 	"github.com/Sadere/ya-metrics/internal/server/service"
 	"github.com/Sadere/ya-metrics/internal/server/storage"
-	"github.com/gin-gonic/gin"
+	"github.com/Sadere/ya-metrics/internal/server/grpc"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
@@ -28,80 +27,17 @@ var (
 	buildCommit  string
 )
 
-// Основная структура сервера
-type Server struct {
-	config        config.Config          // Конфиг сервера
-	metricService *service.MetricService // Сервис метрик
+type MetricApp struct {
+	config        config.Config
+	log           *zap.Logger
 	fileManager   *storage.FileManager   // Менеджер файла хранящий метрики
-	log           *zap.Logger            // Лог
-	db            *sqlx.DB               // Указатель на соединение с БД
+	metricService *service.MetricService // Сервис метрик
 }
 
-func (s *Server) setupRouter() (*gin.Engine, error) {
-	r := gin.New()
-
-	// Подключаем логи
-	r.Use(middleware.Logger(s.log))
-
-	// Стандартный обработчик паники
-	r.Use(gin.Recovery())
-
-	if len(s.config.TrustedSubnet) > 0 {
-		IPMiddleware, err := middleware.ValidateIP(s.config.TrustedSubnet)
-		if err != nil {
-			s.log.Sugar().Fatalf("failed to setup trusted subnet: %s", err)
-			return nil, err
-		}
-
-		r.Use(IPMiddleware)
-	}
-
-	// Распаковываем запрос
-	r.Use(middleware.GzipDecompress())
-
-	// Проверка хеша
-	r.Use(middleware.ValidateHash(s.config.HashKey))
-
-	// Дешифровка запроса
-	if len(s.config.PrivateKeyPath) > 0 {
-		RSAMiddleware, err := middleware.Decrypt(s.config.PrivateKeyPath)
-		if err != nil {
-			s.log.Sugar().Errorf("unable to initialize RSA decryption middleware: %s", err.Error())
-		} else {
-			r.Use(RSAMiddleware)
-		}
-	}
-
-	// Хеш ответа
-	r.Use(middleware.HashResponse(s.config.HashKey))
-
-	// Упаковываем ответ
-	r.Use(middleware.GzipCompress())
-
-	// Обработка обновления метрик
-	r.POST(`/update/:type/:metric/:value`, s.updateHandle)
-	r.POST(`/update/`, middleware.JSON(), s.updateHandleJSON)
-
-	// Вывод метрики
-	r.GET(`/value/:type/:metric`, s.getMetricHandle)
-	r.POST(`/value/`, middleware.JSON(), s.getMetricHandleJSON)
-
-	// Проверка подключения к бд
-	r.GET(`/ping`, s.pingHandle)
-
-	// Добавление нескольких метрик
-	r.POST(`/updates/`, middleware.JSON(), s.updateBatchHandleJSON)
-
-	// Вывод всех метрик в HTML
-	r.GET(`/`, s.getAllMetricsHandle)
-
-	return r, nil
-}
-
-func (s *Server) restoreState() {
-	restoredState, err := s.fileManager.ReadMetrics()
+func (a *MetricApp) restoreState() {
+	restoredState, err := a.fileManager.ReadMetrics()
 	if err != nil {
-		s.log.Sugar().Errorf("unable to read state from file: %s", err.Error())
+		a.log.Sugar().Errorf("unable to read state from file: %s", err.Error())
 	}
 
 	metricsData := make(map[string]common.Metrics)
@@ -110,16 +46,16 @@ func (s *Server) restoreState() {
 		metricsData[m.ID] = m
 	}
 
-	err = s.metricService.SaveMetrics(metricsData)
+	err = a.metricService.SaveMetrics(metricsData)
 	if err != nil {
-		s.log.Sugar().Errorf("unable to restore state: %s", err.Error())
+		a.log.Sugar().Errorf("unable to restore state: %s", err.Error())
 	}
 }
 
-func (s *Server) saveState() {
-	metrics, err := s.metricService.GetAllMetrics()
+func (a *MetricApp) saveState() {
+	metrics, err := a.metricService.GetAllMetrics()
 	if err != nil {
-		s.log.Sugar().Errorf("unable to read state for saving: %s", err.Error())
+		a.log.Sugar().Errorf("unable to read state for saving: %s", err.Error())
 	}
 
 	savedState := make([]common.Metrics, 0)
@@ -128,34 +64,102 @@ func (s *Server) saveState() {
 		savedState = append(savedState, m)
 	}
 
-	if err := s.fileManager.WriteMetrics(savedState); err != nil {
-		s.log.Sugar().Errorf("unable to save state: %s", err.Error())
+	if err := a.fileManager.WriteMetrics(savedState); err != nil {
+		a.log.Sugar().Errorf("unable to save state: %s", err.Error())
 	}
 }
 
-// Запуск http-сервера
-func (s *Server) StartServer() error {
-	// Инициализируем роутер
-	r, err := s.setupRouter()
-
+// Инициализация логов
+func (a *MetricApp) InitLogging(logLevel string) {
+	zapLogger, err := logger.NewZapLogger(logLevel)
 	if err != nil {
-		return err
+		log.Fatal("Couldn't initialize zap logger")
 	}
 
-	// Загружаем HTML шаблоны
-	execFile, _ := os.Executable()
-	execPath := filepath.Dir(execFile)
-	r.LoadHTMLGlob(execPath + "/../../templates/*")
+	a.log = zapLogger
+}
 
-	srv := &http.Server{
-		Addr:    s.config.Address.String(),
-		Handler: r,
+// Точка входа в сервер, настройка и запуск сервера
+func Run() {
+	// Выводим информацию о сборке
+	fmt.Print(common.BuildInfo(buildVersion, buildDate, buildCommit))
+
+	cfg := config.NewConfig()
+
+	var (
+		rep storage.MetricRepository
+		db  *sqlx.DB
+		err error
+	)
+
+	// Выбираем хранилище
+	if len(cfg.PostgresDSN) > 0 {
+		db, err = sqlx.Connect("pgx", cfg.PostgresDSN)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		rep = storage.NewPgRepository(db)
+	} else {
+		rep = storage.NewMemRepository()
+	}
+
+	metricService := service.NewMetricService(rep)
+
+	app := &MetricApp{
+		config:        cfg,
+		metricService: metricService,
+	}
+
+	// Инициализируем логи
+	app.InitLogging(cfg.LogLevel)
+
+	app.fileManager = storage.NewFileManager(cfg.FileStoragePath)
+
+	// Сохранение/восстановление состояния из файла
+	if len(cfg.FileStoragePath) > 0 {
+		// Восстанавливаем данные из файла
+		if cfg.Restore {
+			app.restoreState()
+		}
+
+		// Сохраняем состояние сервера в файле, если в конфиге указано интервальное сохранение
+		if cfg.StoreInterval > 0 {
+			go func() {
+				for {
+					time.Sleep(time.Second * time.Duration(cfg.StoreInterval))
+
+					app.saveState()
+				}
+			}()
+		}
+	}
+
+	if cfg.ServeGRPC {
+		app.StartGRPC()
+	} else {
+		app.StartREST(db)
+	}
+}
+
+func (a *MetricApp) StartGRPC() {
+	listen, err := net.Listen("tcp", a.config.Address.String())
+    if err != nil {
+        log.Fatalln("failed to listen", err)
+    }
+
+	server := grpc.NewServer(a.config, a.metricService, a.log)
+
+	// Регистрируем gRPC сервер
+	srv, err := server.Register()
+	if err != nil {
+		a.log.Sugar().Fatalf("failed to register gRPC server: %s\n", err)
 	}
 
 	// Запускаем сервер в фоне
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			s.log.Sugar().Fatalf("listen: %s\n", err)
+		if err := srv.Serve(listen); err != nil {
+			a.log.Sugar().Fatalf("gRPC serve error: %s\n", err)
 		}
 	}()
 
@@ -164,77 +168,35 @@ func (s *Server) StartServer() error {
 
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-quit
-	s.log.Sugar().Infoln("shutdown server ...")
+
+	a.log.Sugar().Infoln("gRPC server shutdown ...")
+
+	srv.GracefulStop()
 
 	// Сохраняем состояние сервера перед выходом
-	if s.config.StoreInterval == 0 {
-		s.saveState()
+	if a.config.StoreInterval == 0 {
+		a.saveState()
 	}
-
-	return nil
 }
 
-// Инициализация логов
-func (s *Server) InitLogging() {
-	zapLogger, err := logger.NewZapLogger(s.config.LogLevel)
-	if err != nil {
-		log.Fatal("Couldn't initialize zap logger")
-	}
-
-	s.log = zapLogger
-}
-
-// Точка входа в сервер, настройка и запуск сервера
-func Run() {
-	// Выводим информацию о сборке
-	fmt.Print(common.BuildInfo(buildVersion, buildDate, buildCommit))
-
-	server := &Server{}
-	server.config = config.NewConfig()
-	server.fileManager = storage.NewFileManager(server.config.FileStoragePath)
-
-	var rep storage.MetricRepository
-
-	// Выбираем хранилище
-	if len(server.config.PostgresDSN) > 0 {
-		db, err := sqlx.Connect("pgx", server.config.PostgresDSN)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-
-		server.db = db
-		rep = storage.NewPgRepository(db)
-	} else {
-		rep = storage.NewMemRepository()
-	}
-
-	server.metricService = service.NewMetricService(rep)
-
-	// Инициализируем логи
-	server.InitLogging()
-
-	// Сохранение/восстановление состояния из файла
-	if len(server.config.FileStoragePath) > 0 {
-		// Восстанавливаем данные из файла
-		if server.config.Restore {
-			server.restoreState()
-		}
-
-		// Сохраняем состояние сервера в файле, если в конфиге указано интервальное сохранение
-		if server.config.StoreInterval > 0 {
-			go func() {
-				for {
-					time.Sleep(time.Second * time.Duration(server.config.StoreInterval))
-
-					server.saveState()
-				}
-			}()
-		}
-	}
+func (a *MetricApp) StartREST(db *sqlx.DB) {
+	server := rest.NewServer(a.config, a.metricService, a.log, db)
 
 	// Запускаем сервер
-	err := server.StartServer()
+	err := server.Start()
 	if err != nil {
-		server.log.Sugar().Fatalf("couldn't start server: %s\n", err)
+		a.log.Sugar().Fatalf("couldn't start server: %s\n", err)
+	}
+
+	// Ловим сигналы отключения сервера
+	quit := make(chan os.Signal, 1)
+
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	<-quit
+	a.log.Sugar().Infoln("shutdown server ...")
+
+	// Сохраняем состояние сервера перед выходом
+	if a.config.StoreInterval == 0 {
+		a.saveState()
 	}
 }

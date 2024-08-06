@@ -9,19 +9,21 @@ import (
 	"time"
 
 	"github.com/Sadere/ya-metrics/internal/agent/config"
+	"github.com/Sadere/ya-metrics/internal/agent/transport"
 	"github.com/Sadere/ya-metrics/internal/common"
 )
 
 // Информация о сборке
 var (
 	buildVersion string
-	buildDate string
-	buildCommit string
+	buildDate    string
+	buildCommit  string
 )
 
 // Главная структура агента
 type MetricAgent struct {
 	config    config.Config
+	transport transport.MetricTransport
 	pollCount int64
 	workChan  chan []common.Metrics
 	doneChan  chan struct{}
@@ -38,7 +40,7 @@ func (a *MetricAgent) worker(id int) {
 			// Задержка перед отправкой метрик на сервер
 			time.Sleep(time.Duration(a.config.ReportInterval) * time.Second)
 
-			err := a.trySendMetrics(metrics)
+			err := a.transport.SendMetrics(metrics)
 			if err != nil {
 				log.Println(err.Error())
 			}
@@ -51,8 +53,11 @@ func Run() {
 	// Выводим информацию о сборке
 	fmt.Print(common.BuildInfo(buildVersion, buildDate, buildCommit))
 
+	// Конфиг
+	cfg := config.NewConfig()
+
 	agent := MetricAgent{
-		config:    config.NewConfig(),
+		config:    cfg,
 		pollCount: 0,
 		workChan:  make(chan []common.Metrics),
 	}
@@ -67,6 +72,18 @@ func Run() {
 
 	agent.doneChan = make(chan struct{}, agent.config.RateLimit)
 
+	if cfg.ServerGRPC {
+		gRPCTransport, err := transport.NewGRPCMetricTransport(cfg)
+		if err != nil {
+			log.Fatalf("failed to initialize gRPC transport: %s", err)
+		}
+
+		agent.transport = gRPCTransport
+	} else {
+		agent.transport = transport.NewHTTPMetricTransport(cfg)
+	}
+
+	// Запускаем воркеров отправки
 	for i := 0; i < agent.config.RateLimit; i++ {
 		go agent.worker(i)
 	}

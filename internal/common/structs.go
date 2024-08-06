@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	pb "github.com/Sadere/ya-metrics/internal/proto"
 )
 
 // Адрес хоста в формате <host>:<port>
@@ -58,4 +59,42 @@ type Metrics struct {
 	MType string   `json:"type" db:"mtype"`            // параметр, принимающий значение gauge или counter
 	Delta *int64   `json:"delta,omitempty" db:"delta"` // значение метрики в случае передачи counter
 	Value *float64 `json:"value,omitempty" db:"value"` // значение метрики в случае передачи gauge
+}
+
+func MetricFromProto(pbMetric *pb.Metric) Metrics {
+	mType := GaugeMetric
+
+	if pbMetric.MType == pb.Metric_COUNTER {
+		mType = CounterMetric
+	}
+
+	return Metrics{
+		ID: pbMetric.ID,
+		MType: string(mType),
+		Value: &pbMetric.Value,
+		Delta: &pbMetric.Delta,
+	}
+}
+
+func ProtoFromMetric(metric *Metrics) *pb.Metric {
+	mType := pb.Metric_GAUGE
+
+	if metric.MType == string(CounterMetric) {
+		mType = pb.Metric_COUNTER
+	}
+
+	pbMetric := &pb.Metric{
+		ID: metric.ID,
+		MType: mType,
+	}
+
+	if metric.Delta != nil {
+		pbMetric.Delta = *metric.Delta
+	}
+
+	if metric.Value != nil {
+		pbMetric.Value = *metric.Value
+	}
+
+	return pbMetric
 }

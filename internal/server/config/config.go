@@ -19,6 +19,7 @@ const (
 
 // Хранит настройки сервера
 type Config struct {
+	ServeGRPC       bool              // Тип сервера, true для gRPC
 	Address         common.NetAddress `json:"address"` // Адрес сервера
 	LogLevel        string            // Уровень логирования
 	StoreInterval   int               `json:"store_interval"` // Интервал в секундах через сколько сервер должен сохранять состояние в файл
@@ -32,6 +33,7 @@ type Config struct {
 
 func NewConfig() Config {
 	newConfig := Config{
+		ServeGRPC: false,
 		Address: common.NetAddress{
 			Host: "localhost",
 			Port: 8080,
@@ -54,6 +56,7 @@ func NewConfig() Config {
 		cfgFilePath string
 	)
 
+	flag.BoolVar(&newConfig.ServeGRPC, "g", false, "Тип сервера, true для gRPC")
 	flag.StringVar(&newConfig.LogLevel, "v", "fatal", "Уровень лога, возможные значения: debug, info, warn, error, dpanic, panic, fatal")
 	flag.Var(&flagAddress, "a", "Адрес сервера")
 	flag.IntVar(&flagStoreInterval, "i", 0, "Интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск (значение 0 делает запись синхронной)")
@@ -135,6 +138,7 @@ func NewConfig() Config {
 		newConfig.TrustedSubnet = flagTrustedSubnet
 	}
 
+	fmt.Printf("gRPC = %v\n", newConfig.ServeGRPC)
 	fmt.Printf("address = %s\n", newConfig.Address.String())
 	fmt.Printf("log level = %s\n", newConfig.LogLevel)
 	fmt.Printf("store interval = %d sec\n", newConfig.StoreInterval)
