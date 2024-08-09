@@ -54,7 +54,10 @@ func Run() {
 	fmt.Print(common.BuildInfo(buildVersion, buildDate, buildCommit))
 
 	// Конфиг
-	cfg := config.NewConfig()
+	cfg, err := config.NewConfig(os.Args[1:])
+	if err != nil {
+		log.Fatalf("failed to initialize config: %s", err)
+	}
 
 	agent := MetricAgent{
 		config:    cfg,

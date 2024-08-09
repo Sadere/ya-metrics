@@ -32,6 +32,8 @@ func (addr *NetAddress) Set(flagValue string) error {
 		}
 
 		addr.Port = optPort
+	} else {
+		return fmt.Errorf("wrong address format")
 	}
 
 	return nil
