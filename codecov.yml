@@ -1,2 +1,3 @@
 ignore:
   - "proto/metrics/v1/*.go"
+  - "cmd/staticlint/main.go"
