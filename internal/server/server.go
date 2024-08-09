@@ -11,11 +11,11 @@ import (
 
 	"github.com/Sadere/ya-metrics/internal/common"
 	"github.com/Sadere/ya-metrics/internal/server/config"
+	"github.com/Sadere/ya-metrics/internal/server/grpc"
 	"github.com/Sadere/ya-metrics/internal/server/logger"
 	"github.com/Sadere/ya-metrics/internal/server/rest"
 	"github.com/Sadere/ya-metrics/internal/server/service"
 	"github.com/Sadere/ya-metrics/internal/server/storage"
-	"github.com/Sadere/ya-metrics/internal/server/grpc"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
@@ -84,12 +84,14 @@ func Run() {
 	// Выводим информацию о сборке
 	fmt.Print(common.BuildInfo(buildVersion, buildDate, buildCommit))
 
-	cfg := config.NewConfig()
+	cfg, err := config.NewConfig(os.Args[1:])
+	if err != nil {
+		log.Fatalf("failed to initialize config: %s", err)
+	}
 
 	var (
 		rep storage.MetricRepository
 		db  *sqlx.DB
-		err error
 	)
 
 	// Выбираем хранилище
@@ -144,9 +146,9 @@ func Run() {
 
 func (a *MetricApp) StartGRPC() {
 	listen, err := net.Listen("tcp", a.config.Address.String())
-    if err != nil {
-        log.Fatalln("failed to listen", err)
-    }
+	if err != nil {
+		log.Fatalln("failed to listen", err)
+	}
 
 	server := grpc.NewServer(a.config, a.metricService, a.log)
 

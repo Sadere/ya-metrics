@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
@@ -31,17 +30,8 @@ type Config struct {
 	TrustedSubnet   string            `json:"trusted_subnet"` // Доверенная подсеть, если пусто, то все IP доверенные
 }
 
-func NewConfig() Config {
-	newConfig := Config{
-		ServeGRPC: false,
-		Address: common.NetAddress{
-			Host: "localhost",
-			Port: 8080,
-		},
-		StoreInterval:   DefaultStoreInterval,
-		FileStoragePath: DefaultFileStoragePath,
-		Restore:         true,
-	}
+func NewConfig(args []string) (Config, error) {
+	newConfig := defaultConfig()
 
 	var (
 		flagAddress         common.NetAddress
@@ -56,18 +46,24 @@ func NewConfig() Config {
 		cfgFilePath string
 	)
 
-	flag.BoolVar(&newConfig.ServeGRPC, "g", false, "Тип сервера, true для gRPC")
-	flag.StringVar(&newConfig.LogLevel, "v", "fatal", "Уровень лога, возможные значения: debug, info, warn, error, dpanic, panic, fatal")
-	flag.Var(&flagAddress, "a", "Адрес сервера")
-	flag.IntVar(&flagStoreInterval, "i", 0, "Интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск (значение 0 делает запись синхронной)")
-	flag.StringVar(&flagFileStoragePath, "f", "", "Путь к файлу, хранящему данные метрик")
-	flag.BoolVar(&flagRestore, "r", false, "Флаг, указывающий нужно ли восстанавливать данные из файла")
-	flag.StringVar(&flagPostgresDSN, "d", "", "DSN для postgresql")
-	flag.StringVar(&flagHashKey, "k", "", "Ключ для проверки хеша и хеширования ответов сервера")
-	flag.StringVar(&flagPrivateKeyPath, "crypto-key", "", "Путь к файлу приватного ключа в формате PEM")
-	flag.StringVar(&cfgFilePath, "c", "", "Путь к файлу конфига")
-	flag.StringVar(&flagTrustedSubnet, "t", "", "Доверенная подсеть")
-	flag.Parse()
+	flags := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+
+	flags.BoolVar(&newConfig.ServeGRPC, "g", false, "Тип сервера, true для gRPC")
+	flags.StringVar(&newConfig.LogLevel, "v", "fatal", "Уровень лога, возможные значения: debug, info, warn, error, dpanic, panic, fatal")
+	flags.Var(&flagAddress, "a", "Адрес сервера")
+	flags.IntVar(&flagStoreInterval, "i", 0, "Интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск (значение 0 делает запись синхронной)")
+	flags.StringVar(&flagFileStoragePath, "f", "", "Путь к файлу, хранящему данные метрик")
+	flags.BoolVar(&flagRestore, "r", false, "Флаг, указывающий нужно ли восстанавливать данные из файла")
+	flags.StringVar(&flagPostgresDSN, "d", "", "DSN для postgresql")
+	flags.StringVar(&flagHashKey, "k", "", "Ключ для проверки хеша и хеширования ответов сервера")
+	flags.StringVar(&flagPrivateKeyPath, "crypto-key", "", "Путь к файлу приватного ключа в формате PEM")
+	flags.StringVar(&cfgFilePath, "c", "", "Путь к файлу конфига")
+	flags.StringVar(&flagTrustedSubnet, "t", "", "Доверенная подсеть")
+
+	err := flags.Parse(args)
+	if err != nil {
+		return newConfig, err
+	}
 
 	// Берем конфигурацию из файла, если передан путь до конфига
 	if envCfgFile := os.Getenv("CONFIG"); len(envCfgFile) > 0 {
@@ -86,7 +82,7 @@ func NewConfig() Config {
 	if envAddr := os.Getenv("ADDRESS"); len(envAddr) > 0 {
 		err := newConfig.Address.Set(envAddr)
 		if err != nil {
-			log.Fatalf("Invalid server address supplied, ADDRESS = %s", envAddr)
+			return newConfig, fmt.Errorf("invalid server address supplied, ADDRESS = %s", envAddr)
 		}
 	} else if len(flagAddress.Host) > 0 {
 		newConfig.Address = flagAddress
@@ -146,7 +142,21 @@ func NewConfig() Config {
 	fmt.Printf("private key path = %s\n", newConfig.PrivateKeyPath)
 	fmt.Printf("trusted subnet = %s\n", newConfig.TrustedSubnet)
 
-	return newConfig
+	return newConfig, nil
+}
+
+func defaultConfig() Config {
+	return Config{
+		ServeGRPC: false,
+		Address: common.NetAddress{
+			Host: "localhost",
+			Port: 8080,
+		},
+		LogLevel:        "fatal",
+		StoreInterval:   DefaultStoreInterval,
+		FileStoragePath: DefaultFileStoragePath,
+		Restore:         true,
+	}
 }
 
 // Получает конфиг из файла filePath
