@@ -3,16 +3,17 @@ package grpc
 import (
 	"net"
 
-	pb "github.com/Sadere/ya-metrics/internal/proto"
 	"github.com/Sadere/ya-metrics/internal/server/config"
 	"github.com/Sadere/ya-metrics/internal/server/grpc/interceptors"
 	"github.com/Sadere/ya-metrics/internal/server/service"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
+	pb "github.com/Sadere/ya-metrics/proto/metrics/v1"
 )
 
 type MetricsServer struct {
-	pb.UnimplementedMetricsServer
+	pb.UnimplementedMetricsServiceV1Server
 
 	config        config.Config
 	metricService *service.MetricService
@@ -49,7 +50,7 @@ func (s *MetricsServer) Register() (*grpc.Server, error) {
 	))
 
 	// регистрируем сервис
-	pb.RegisterMetricsServer(srv, s)
+	pb.RegisterMetricsServiceV1Server(srv, s)
 
 	return srv, nil
 }

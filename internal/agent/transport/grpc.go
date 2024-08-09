@@ -2,20 +2,20 @@ package transport
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Sadere/ya-metrics/internal/agent/config"
 	"github.com/Sadere/ya-metrics/internal/common"
-	pb "github.com/Sadere/ya-metrics/internal/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+
+	pb "github.com/Sadere/ya-metrics/proto/metrics/v1"
 )
 
 // Транспорт отправки метрик используя gRPC
 type GRPCMetricTransport struct {
 	config config.Config
-	client pb.MetricsClient
+	client pb.MetricsServiceV1Client
 }
 
 func NewGRPCMetricTransport(cfg config.Config) (*GRPCMetricTransport, error) {
@@ -24,7 +24,7 @@ func NewGRPCMetricTransport(cfg config.Config) (*GRPCMetricTransport, error) {
 		return nil, err
 	}
 
-	client := pb.NewMetricsClient(c)
+	client := pb.NewMetricsServiceV1Client(c)
 
 	return &GRPCMetricTransport{
 		config: cfg,
@@ -34,7 +34,7 @@ func NewGRPCMetricTransport(cfg config.Config) (*GRPCMetricTransport, error) {
 
 // Отправка метрик на сервер с помощью gRPC
 func (t *GRPCMetricTransport) SendMetrics(metrics []common.Metrics) error {
-	var req pb.SaveMetricsBatchRequest
+	var req pb.SaveMetricsBatchRequestV1
 
 	pbMetrics := make([]*pb.Metric, len(metrics))
 
@@ -47,14 +47,10 @@ func (t *GRPCMetricTransport) SendMetrics(metrics []common.Metrics) error {
 	md := metadata.New(map[string]string{common.IPHeader: t.config.HostAddress})
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
-	res, err := t.client.SaveMetricsBatch(ctx, &req)
+	_, err := t.client.SaveMetricsBatchV1(ctx, &req)
 
 	if err != nil {
 		return err
-	}
-
-	if len(res.Error) > 0 {
-		return fmt.Errorf("gRPC error: %s", res.Error)
 	}
 
 	return nil

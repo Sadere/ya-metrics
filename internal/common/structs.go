@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	pb "github.com/Sadere/ya-metrics/internal/proto"
+
+	pb "github.com/Sadere/ya-metrics/proto/metrics/v1"
 )
 
 // Адрес хоста в формате <host>:<port>
@@ -68,12 +69,21 @@ func MetricFromProto(pbMetric *pb.Metric) Metrics {
 		mType = CounterMetric
 	}
 
-	return Metrics{
-		ID: pbMetric.ID,
+	metric := Metrics{
+		ID:    pbMetric.ID,
 		MType: string(mType),
-		Value: &pbMetric.Value,
-		Delta: &pbMetric.Delta,
 	}
+
+	switch pbMetric.MetricValue.(type) {
+	case *pb.Metric_Delta:
+		v := pbMetric.MetricValue.(*pb.Metric_Delta)
+		metric.Delta = &v.Delta
+	case *pb.Metric_Value:
+		v := pbMetric.MetricValue.(*pb.Metric_Value)
+		metric.Value = &v.Value
+	}
+
+	return metric
 }
 
 func ProtoFromMetric(metric *Metrics) *pb.Metric {
@@ -84,16 +94,16 @@ func ProtoFromMetric(metric *Metrics) *pb.Metric {
 	}
 
 	pbMetric := &pb.Metric{
-		ID: metric.ID,
+		ID:    metric.ID,
 		MType: mType,
 	}
 
 	if metric.Delta != nil {
-		pbMetric.Delta = *metric.Delta
+		pbMetric.MetricValue = &pb.Metric_Delta{Delta: *metric.Delta}
 	}
 
 	if metric.Value != nil {
-		pbMetric.Value = *metric.Value
+		pbMetric.MetricValue = &pb.Metric_Value{Value: *metric.Value}
 	}
 
 	return pbMetric
