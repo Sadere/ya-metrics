@@ -15,7 +15,7 @@ import (
 	pb "github.com/Sadere/ya-metrics/proto/metrics/v1"
 )
 
-func (s *MetricsServer) GetMetric(ctx context.Context, in *pb.GetMetricRequestV1) (*pb.GetMetricResponseV1, error) {
+func (s *MetricsServer) GetMetricV1(ctx context.Context, in *pb.GetMetricRequestV1) (*pb.GetMetricResponseV1, error) {
 	var response pb.GetMetricResponseV1
 
 	// Валидация метрики
@@ -47,7 +47,7 @@ func (s *MetricsServer) GetMetric(ctx context.Context, in *pb.GetMetricRequestV1
 	return &response, nil
 }
 
-func (s *MetricsServer) SaveMetricsBatch(ctx context.Context, in *pb.SaveMetricsBatchRequestV1) (*emptypb.Empty, error) {
+func (s *MetricsServer) SaveMetricsBatchV1(ctx context.Context, in *pb.SaveMetricsBatchRequestV1) (*emptypb.Empty, error) {
 	var response emptypb.Empty
 
 	for _, m := range in.Metrics {
