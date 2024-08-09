@@ -19,6 +19,7 @@ const (
 
 // Хранит настройки сервера
 type Config struct {
+	ServeGRPC       bool              // Тип сервера, true для gRPC
 	Address         common.NetAddress `json:"address"` // Адрес сервера
 	LogLevel        string            // Уровень логирования
 	StoreInterval   int               `json:"store_interval"` // Интервал в секундах через сколько сервер должен сохранять состояние в файл
@@ -26,11 +27,13 @@ type Config struct {
 	Restore         bool              `json:"restore"`        // Восстанавливать данные из файла
 	PostgresDSN     string            `json:"database_dsn"`   // DSN строка для подключения к бд
 	HashKey         string            // Ключ для проверки хеша и хеширования ответов сервера
-	PrivateKeyPath  string            `json:"crypto_key"` // Путь к файлу приватного ключа в формате PEM
+	PrivateKeyPath  string            `json:"crypto_key"`     // Путь к файлу приватного ключа в формате PEM
+	TrustedSubnet   string            `json:"trusted_subnet"` // Доверенная подсеть, если пусто, то все IP доверенные
 }
 
 func NewConfig() Config {
 	newConfig := Config{
+		ServeGRPC: false,
 		Address: common.NetAddress{
 			Host: "localhost",
 			Port: 8080,
@@ -48,10 +51,12 @@ func NewConfig() Config {
 		flagPostgresDSN     string
 		flagHashKey         string
 		flagPrivateKeyPath  string
+		flagTrustedSubnet   string
 
 		cfgFilePath string
 	)
 
+	flag.BoolVar(&newConfig.ServeGRPC, "g", false, "Тип сервера, true для gRPC")
 	flag.StringVar(&newConfig.LogLevel, "v", "fatal", "Уровень лога, возможные значения: debug, info, warn, error, dpanic, panic, fatal")
 	flag.Var(&flagAddress, "a", "Адрес сервера")
 	flag.IntVar(&flagStoreInterval, "i", 0, "Интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск (значение 0 делает запись синхронной)")
@@ -61,6 +66,7 @@ func NewConfig() Config {
 	flag.StringVar(&flagHashKey, "k", "", "Ключ для проверки хеша и хеширования ответов сервера")
 	flag.StringVar(&flagPrivateKeyPath, "crypto-key", "", "Путь к файлу приватного ключа в формате PEM")
 	flag.StringVar(&cfgFilePath, "c", "", "Путь к файлу конфига")
+	flag.StringVar(&flagTrustedSubnet, "t", "", "Доверенная подсеть")
 	flag.Parse()
 
 	// Берем конфигурацию из файла, если передан путь до конфига
@@ -126,11 +132,19 @@ func NewConfig() Config {
 		newConfig.PrivateKeyPath = flagPrivateKeyPath
 	}
 
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); len(envTrustedSubnet) > 0 {
+		newConfig.TrustedSubnet = envTrustedSubnet
+	} else if len(flagTrustedSubnet) > 0 {
+		newConfig.TrustedSubnet = flagTrustedSubnet
+	}
+
+	fmt.Printf("gRPC = %v\n", newConfig.ServeGRPC)
 	fmt.Printf("address = %s\n", newConfig.Address.String())
 	fmt.Printf("log level = %s\n", newConfig.LogLevel)
 	fmt.Printf("store interval = %d sec\n", newConfig.StoreInterval)
 	fmt.Printf("file storage path = %s\n", newConfig.FileStoragePath)
 	fmt.Printf("private key path = %s\n", newConfig.PrivateKeyPath)
+	fmt.Printf("trusted subnet = %s\n", newConfig.TrustedSubnet)
 
 	return newConfig
 }

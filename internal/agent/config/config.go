@@ -22,17 +22,20 @@ const (
 
 // Хранит настройки агента
 type Config struct {
+	ServerGRPC     bool              // Тип сервера
 	ServerAddress  common.NetAddress `json:"address"`         // Адрес сервера для отправки метрик
 	PollInterval   int               `json:"poll_interval"`   // Интервал запроса метрик системы в секундах
 	ReportInterval int               `json:"report_interval"` // Интервал отправки метрик на сервер в секундах
 	HashKey        string            // Ключ для хеширования тела запроса
 	RateLimit      int               // Кол-во одновременных отправок на сервер (кол-во воркеров)
 	PubKeyFilePath string            `json:"crypto_key"` // Путь к файлу публичного ключа шифрования в формате PEM
+	HostAddress    string
 }
 
 // Возвращает структура конфига с установленными настройками
 func NewConfig() Config {
 	newConfig := Config{
+		ServerGRPC: false,
 		ServerAddress: common.NetAddress{
 			Host: "localhost",
 			Port: 8080,
@@ -55,6 +58,7 @@ func NewConfig() Config {
 
 	// Парсим аргументы командной строки
 
+	flag.BoolVar(&newConfig.ServerGRPC, "g", false, "Тип API сервера, true для gRPC, по умолчанию false")
 	flag.IntVar(&flagPollInterval, "p", 0, "Частота сбора метрик")
 	flag.IntVar(&flagReportInterval, "r", 0, "Частота опроса сервера в секундах")
 	flag.Var(&flagServerAddress, "a", "Адрес сервера")

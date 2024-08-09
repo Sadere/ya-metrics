@@ -1,4 +1,4 @@
-package agent
+package transport
 
 import (
 	"net/http"
@@ -34,13 +34,13 @@ func TestSend(t *testing.T) {
 	err := addr.Set(strings.Replace(ts.URL, "http://", "", 1))
 	assert.Nil(t, err)
 
-	agent := MetricAgent{
-		config: config.Config{
-			ServerAddress: addr,
-		},
+	cfg := config.Config{
+		ServerAddress: addr,
 	}
 
-	err = agent.trySendMetrics(inputData())
+	tr := NewHTTPMetricTransport(cfg)
+
+	err = tr.SendMetrics(inputData())
 
 	assert.Nil(t, err)
 }
@@ -55,13 +55,13 @@ func TestSendError(t *testing.T) {
 	err := addr.Set(strings.Replace(ts.URL, "http://", "", 1))
 	assert.Nil(t, err)
 
-	agent := MetricAgent{
-		config: config.Config{
-			ServerAddress: addr,
-		},
+	cfg := config.Config{
+		ServerAddress: addr,
 	}
 
-	err = agent.trySendMetrics(inputData())
+	tr := NewHTTPMetricTransport(cfg)
+
+	err = tr.SendMetrics(inputData())
 
 	assert.NotNil(t, err)
 }
