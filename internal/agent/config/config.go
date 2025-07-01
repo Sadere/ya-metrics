@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
@@ -22,17 +21,19 @@ const (
 
 // Хранит настройки агента
 type Config struct {
+	ServerGRPC     bool              // Тип сервера
 	ServerAddress  common.NetAddress `json:"address"`         // Адрес сервера для отправки метрик
 	PollInterval   int               `json:"poll_interval"`   // Интервал запроса метрик системы в секундах
 	ReportInterval int               `json:"report_interval"` // Интервал отправки метрик на сервер в секундах
 	HashKey        string            // Ключ для хеширования тела запроса
 	RateLimit      int               // Кол-во одновременных отправок на сервер (кол-во воркеров)
 	PubKeyFilePath string            `json:"crypto_key"` // Путь к файлу публичного ключа шифрования в формате PEM
+	HostAddress    string
 }
 
-// Возвращает структура конфига с установленными настройками
-func NewConfig() Config {
-	newConfig := Config{
+func defaultConfig() Config {
+	return Config{
+		ServerGRPC: false,
 		ServerAddress: common.NetAddress{
 			Host: "localhost",
 			Port: 8080,
@@ -41,6 +42,11 @@ func NewConfig() Config {
 		ReportInterval: DefaultReportInterval,
 		RateLimit:      DefaultRateLimit,
 	}
+}
+
+// Возвращает структуру конфига с установленными настройками
+func NewConfig(args []string) (Config, error) {
+	newConfig := defaultConfig()
 
 	var (
 		flagPollInterval   int
@@ -54,15 +60,20 @@ func NewConfig() Config {
 	)
 
 	// Парсим аргументы командной строки
+	flags := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
-	flag.IntVar(&flagPollInterval, "p", 0, "Частота сбора метрик")
-	flag.IntVar(&flagReportInterval, "r", 0, "Частота опроса сервера в секундах")
-	flag.Var(&flagServerAddress, "a", "Адрес сервера")
-	flag.StringVar(&flagHashKey, "k", "", "Ключ для хеширования передаваемых данных")
-	flag.IntVar(&flagRateLimit, "l", 0, "Лимит одновременных отправок на сервер")
-	flag.StringVar(&flagPubKeyFilePath, "crypto-key", "", "Путь к файлу публичного ключа шифрования в формате PEM")
-	flag.StringVar(&cfgFilePath, "c", "", "Путь к файлу конфига")
-	flag.Parse()
+	flags.BoolVar(&newConfig.ServerGRPC, "g", false, "Тип API сервера, true для gRPC, по умолчанию false")
+	flags.IntVar(&flagPollInterval, "p", 0, "Частота сбора метрик")
+	flags.IntVar(&flagReportInterval, "r", 0, "Частота опроса сервера в секундах")
+	flags.Var(&flagServerAddress, "a", "Адрес сервера")
+	flags.StringVar(&flagHashKey, "k", "", "Ключ для хеширования передаваемых данных")
+	flags.IntVar(&flagRateLimit, "l", 0, "Лимит одновременных отправок на сервер")
+	flags.StringVar(&flagPubKeyFilePath, "crypto-key", "", "Путь к файлу публичного ключа шифрования в формате PEM")
+	flags.StringVar(&cfgFilePath, "c", "", "Путь к файлу конфига")
+	err := flags.Parse(args)
+	if err != nil {
+		return newConfig, err
+	}
 
 	// Берем конфигурацию из файла, если передан путь до конфига
 	if envCfgFile := os.Getenv("CONFIG"); len(envCfgFile) > 0 {
@@ -81,7 +92,7 @@ func NewConfig() Config {
 	if envAddr := os.Getenv("ADDRESS"); len(envAddr) > 0 {
 		err := newConfig.ServerAddress.Set(envAddr)
 		if err != nil {
-			log.Fatalf("Invalid server address supplied, ADDRESS = %s", envAddr)
+			return newConfig, fmt.Errorf("invalid server address supplied, ADDRESS = %s", envAddr)
 		}
 	} else if len(flagServerAddress.Host) > 0 {
 		newConfig.ServerAddress = flagServerAddress
@@ -90,7 +101,7 @@ func NewConfig() Config {
 	if envPollInt := os.Getenv("POLL_INTERVAL"); len(envPollInt) > 0 {
 		number, err := strconv.Atoi(envPollInt)
 		if err != nil {
-			number = DefaultReportInterval
+			number = DefaultPollInterval
 		}
 		newConfig.PollInterval = number
 	} else if flagPollInterval > 0 {
@@ -135,7 +146,7 @@ func NewConfig() Config {
 	fmt.Printf("rate limit = %d\n", newConfig.RateLimit)
 	fmt.Printf("public key path = %s\n", newConfig.PubKeyFilePath)
 
-	return newConfig
+	return newConfig, nil
 }
 
 // Получает конфиг из файла filePath
